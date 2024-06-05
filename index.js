@@ -7,9 +7,10 @@ app.use(cors({ origin: "http://localhost:3000" })); //cors issue
 app.use(express.json());
 
 //mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0
+//정성원 테스트용 -- //mongodb+srv://wonny:todnRkd453!@cluster0.zl2eaws.mongodb.net/blog?retryWrites=true&w=majority&appName=Cluster0
+
 const mongoose = require("mongoose");
-const connectUri =
-  "mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0";
+const connectUri = `mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0`;
 mongoose.connect(connectUri);
 
 // user model
@@ -30,6 +31,10 @@ app.use(cookieParser());
 app.get("/", (req, res) => {
   res.send("get request~!~!~");
 });
+
+//Job부분 개발 예정
+const jobRouter = require("./job");
+app.use("/job", jobRouter);
 
 //회원가입
 app.post("/signup", async (req, res) => {
