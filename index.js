@@ -3,7 +3,14 @@ const app = express();
 const port = 8000;
 
 const cors = require("cors");
-app.use(cors({ origin: "http://localhost:3000" })); //cors issue
+
+//cors issue
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 //mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0
