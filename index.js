@@ -45,12 +45,15 @@ app.use("/job", jobRouter);
 
 //회원가입
 app.post("/signup", async (req, res) => {
-  const { emailID, password } = req.body;
-  console.log("id,pw---", emailID, password);
+  const { emailID, password, userName, nickName, phone, account } = req.body;
   try {
     const userDoc = await User.create({
       emailID,
       password: bcrypt.hashSync(password, salt),
+      userName,
+      nickName,
+      phone,
+      account,
     });
     res.json(userDoc);
   } catch (e) {
