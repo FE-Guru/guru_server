@@ -14,8 +14,6 @@ app.use(
 app.use(express.json());
 
 //mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0
-//정성원 테스트용 -- //mongodb+srv://wonny:todnRkd453!@cluster0.zl2eaws.mongodb.net/blog?retryWrites=true&w=majority&appName=Cluster0
-
 const mongoose = require("mongoose");
 const connectUri = `mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0`;
 mongoose.connect(connectUri);

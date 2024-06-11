@@ -1,20 +1,41 @@
 const mongoose = require("mongoose");
 const { Schema, model } = mongoose;
 
-// 스키마 정의
-const JobPostSchema = new Schema({
-  emailID: { type: String, required: true, unique: true },
-  title: { type: String, required: true },
-  nickName: String,
-  date: { type: Date, default: Date.now },
-  endDate: Date,
-  workDate: Date,
-  location: String,
-  pay: String,
-  desc: String,
-  status: { type: [String] },
-  category: { type: [String], required: true },
-});
+const CategorySchema = new Schema(
+  {
+    jobType: { type: String, required: true },
+    time: { type: Number, required: true },
+    talent: { type: String, required: true },
+    field: { type: String, required: true },
+  },
+  { _id: false }
+);
+const locationSchema = new Schema(
+  {
+    zonecode: { type: String },
+    address: { type: String },
+    detailedAddress: { type: String },
+  },
+  { _id: false }
+);
 
-const JobPostModel = model("JobPost", JobPostSchema, "job_post");
-module.exports = JobPostModel;
+// 스키마 정의
+const JobPostSchema = new Schema(
+  {
+    emailID: { type: String, required: true },
+    title: { type: String, required: true },
+    nickName: String,
+    endDate: Date,
+    workStarDate: Date,
+    workEndDate: Date,
+    location: { type: locationSchema },
+    pay: Number,
+    desc: String,
+    status: Number,
+    category: { type: CategorySchema, required: true },
+  },
+  { timestamps: true }
+);
+
+const JobPost = model("JobPost", JobPostSchema, "job_post");
+module.exports = JobPost;
