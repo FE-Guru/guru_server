@@ -75,7 +75,7 @@ app.post("/login", async (req, res) => {
     jwt.sign(
       { emailID, id: userDoc._id, nickName },
       jwtSecret,
-      {},
+      { expiresIn: "1h" },
       (err, token) => {
         if (err) throw err;
         res.cookie("token", token).json({
@@ -91,7 +91,8 @@ app.post("/login", async (req, res) => {
 });
 
 app.get("/profile", (req, res) => {
-  const { token } = req.cookies;
+  const token = req.cookies.token;
+  // const { token } = req.cookies(); cookies is not function error
   if (!token) {
     return res.status(401).json({ message: "no token" });
   }
