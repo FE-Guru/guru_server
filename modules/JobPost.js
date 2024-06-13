@@ -15,6 +15,8 @@ const locationSchema = new Schema(
     zonecode: { type: String },
     address: { type: String },
     detailedAddress: { type: String },
+    mapX: { type: String },
+    mapY: { type: String },
   },
   { _id: false }
 );
@@ -26,7 +28,7 @@ const JobPostSchema = new Schema(
     title: { type: String, required: true },
     nickName: String,
     endDate: Date,
-    workStarDate: Date,
+    workStartDate: Date,
     workEndDate: Date,
     location: { type: locationSchema },
     pay: Number,
