@@ -62,7 +62,7 @@ app.post("/signup", async (req, res) => {
 
 //로그인
 app.post("/login", async (req, res) => {
-  const { emailID, password } = req.body;
+  const { emailID, password, nickName } = req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
@@ -72,17 +72,51 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign({ emailID, id: userDoc._id }, jwtSecret, {}, (err, token) => {
-      if (err) throw err;
-      console.log("token : ", token);
-      res.cookie("token", token).json({
-        id: userDoc._id,
-        emailID,
-      });
-    });
+    jwt.sign(
+      { emailID, id: userDoc._id, nickName },
+      jwtSecret,
+      {},
+      (err, token) => {
+        if (err) throw err;
+        res.cookie("token", token).json({
+          id: userDoc._id,
+          emailID,
+          nickName,
+        });
+      }
+    );
   } else {
     res.json({ message: "failed" });
   }
+});
+
+app.get("/profile", (req, res) => {
+  const { token } = req.cookies;
+  if (!token) {
+    return res.status(401).json({ message: "no token" });
+  }
+  console.log("token : ", token);
+
+  try {
+    jwt.verify(token, jwtSecret, async (err, info) => {
+      if (err) throw err;
+      const user = await User.findById(info.id);
+      if (!user) {
+        return res.json("없는 유저입니다");
+      }
+      const userInfo = {
+        emailID: user.emailID,
+        nickName: user.nickName,
+      };
+      res.json(userInfo);
+    });
+  } catch (error) {
+    res.json("유효하지않은 토큰입니다");
+  }
+});
+
+app.post("/logout", (req, res) => {
+  res.cookie("token", "").json();
 });
 
 app.listen(port, () => {
