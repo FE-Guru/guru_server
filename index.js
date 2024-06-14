@@ -94,26 +94,32 @@ app.get("/profile", (req, res) => {
   const token = req.cookies.token;
   // const { token } = req.cookies(); cookies is not function error
   if (!token) {
-    return res.status(401).json({ message: "no token" });
+    return res.status(401).json({ message: "토큰이 없습니다" });
   }
   console.log("token : ", token);
 
-  try {
-    jwt.verify(token, jwtSecret, async (err, info) => {
-      if (err) throw err;
+  jwt.verify(token, jwtSecret, async (err, info) => {
+    if (err) {
+      console.error("Token error: ", err);
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
+    }
+
+    try {
       const user = await User.findById(info.id);
       if (!user) {
-        return res.json("없는 유저입니다");
+        return res.status(404).json({ message: "없는 유저입니다" });
       }
+
       const userInfo = {
         emailID: user.emailID,
         nickName: user.nickName,
       };
       res.json(userInfo);
-    });
-  } catch (error) {
-    res.json("유효하지않은 토큰입니다");
-  }
+    } catch (error) {
+      console.error("User error: ", error);
+      res.status(500).json({ message: "서버 오류" });
+    }
+  });
 });
 
 app.post("/logout", (req, res) => {
