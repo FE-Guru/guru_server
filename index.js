@@ -62,7 +62,7 @@ app.post("/signup", async (req, res) => {
 
 //로그인
 app.post("/login", async (req, res) => {
-  const { emailID, password, nickName } = req.body;
+  const { emailID, password, userName, nickName } = req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
@@ -73,7 +73,7 @@ app.post("/login", async (req, res) => {
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
     jwt.sign(
-      { emailID, id: userDoc._id, nickName },
+      { emailID, id: userDoc._id, userName, nickName },
       jwtSecret,
       { expiresIn: "1h" },
       (err, token) => {
@@ -82,6 +82,7 @@ app.post("/login", async (req, res) => {
           token,
           id: userDoc._id,
           emailID,
+          userName,
           nickName,
         });
       }
@@ -113,6 +114,7 @@ app.get("/profile", (req, res) => {
 
       const userInfo = {
         emailID: user.emailID,
+        userName: user.userName,
         nickName: user.nickName,
       };
       res.json(userInfo);
