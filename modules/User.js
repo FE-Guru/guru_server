@@ -8,6 +8,12 @@ const UserSchema = new Schema({
   nickName: { type: String },
   phone: { type: String, required: true },
   account: { type: String, required: true },
+  image: String,
+  career: String,
+  certi: String,
+  skill: String,
+  time: String,
+  introduce: String,
 });
 
 const UserModel = model("User", UserSchema);
