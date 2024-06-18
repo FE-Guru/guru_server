@@ -44,7 +44,6 @@ app.get("/", (req, res) => {
 const jobRouter = require("./job");
 app.use("/job", jobRouter);
 
-
 //회원가입
 app.post("/signup", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
@@ -79,7 +78,7 @@ app.post("/login", async (req, res) => {
     jwt.sign(
       { emailID, id: userDoc._id, userName, nickName },
       jwtSecret,
-      { },
+      {},
       (err, token) => {
         if (err) throw err;
         res.cookie("token", token).json({
@@ -128,6 +127,7 @@ app.get("/profile", (req, res) => {
     }
   });
 });
+
 app.put("/profileWrite", upload.single("files"), async (req, res) => {
   const { career, certi, skill, time, introduce } = req.body;
   const file = req.file;
@@ -155,7 +155,7 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     }
 
     // 사용자 정보 업데이트
-    user.career = career|| user.career;
+    user.career = career || user.career;
     user.certi = certi || user.certi;
     user.skill = skill || user.skill;
     user.time = time || user.time;
@@ -178,6 +178,15 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
   }
 });
 
+app.delete("/mypage/acctDelete", async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    await User.findByIdAndDelete(userId);
+    res.status(200).send({ message: "회원탈퇴 완료" });
+  } catch (error) {
+    res.status(500).send({ message: "회원탈퇴 에러", error });
+  }
+});
 
 app.post("/logout", (req, res) => {
   res.cookie("token", "").json();
