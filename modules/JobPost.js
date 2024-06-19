@@ -20,6 +20,12 @@ const locationSchema = new Schema(
   },
   { _id: false }
 );
+const applicantSchema = new Schema({
+  emailID: String,
+  status: Number,
+  matched: { type: Boolean, default: false },
+  applicationDate: { type: Date, default: Date.now },
+});
 
 // 스키마 정의
 const JobPostSchema = new Schema(
@@ -35,6 +41,7 @@ const JobPostSchema = new Schema(
     desc: String,
     status: Number,
     category: { type: CategorySchema, required: true },
+    applicants: { type: [applicantSchema], default: [] },
   },
   { timestamps: true }
 );
