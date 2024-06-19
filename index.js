@@ -44,7 +44,6 @@ app.get("/", (req, res) => {
 const jobRouter = require("./job");
 app.use("/job", jobRouter);
 
-
 //회원가입
 app.post("/signup", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
@@ -76,21 +75,16 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName },
-      jwtSecret,
-      { },
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id, userName, nickName }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName,
+        nickName,
+      });
+    });
   } else {
     res.json({ message: "failed" });
   }
@@ -120,6 +114,7 @@ app.get("/profile", (req, res) => {
         emailID: user.emailID,
         userName: user.userName,
         nickName: user.nickName,
+        certified: user.certified,
       };
       res.json(userInfo);
     } catch (error) {
@@ -155,11 +150,12 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     }
 
     // 사용자 정보 업데이트
-    user.career = career|| user.career;
+    user.career = career || user.career;
     user.certi = certi || user.certi;
     user.skill = skill || user.skill;
     user.time = time || user.time;
     user.introduce = introduce || user.introduce;
+    user.certified = true;
     if (file) {
       user.image = file.path;
     }
@@ -177,7 +173,6 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     res.status(500).json({ message: "서버 오류" });
   }
 });
-
 
 app.post("/logout", (req, res) => {
   res.cookie("token", "").json();
