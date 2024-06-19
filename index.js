@@ -123,6 +123,7 @@ app.get("/profile", (req, res) => {
     }
   });
 });
+
 app.put("/profileWrite", upload.single("files"), async (req, res) => {
   const { career, certi, skill, time, introduce } = req.body;
   const file = req.file;
