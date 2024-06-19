@@ -75,21 +75,16 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName },
-      jwtSecret,
-      {},
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id, userName, nickName }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName,
+        nickName,
+      });
+    });
   } else {
     res.json({ message: "failed" });
   }
@@ -119,6 +114,7 @@ app.get("/profile", (req, res) => {
         emailID: user.emailID,
         userName: user.userName,
         nickName: user.nickName,
+        certified: user.certified,
       };
       res.json(userInfo);
     } catch (error) {
@@ -160,6 +156,7 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     user.skill = skill || user.skill;
     user.time = time || user.time;
     user.introduce = introduce || user.introduce;
+    user.certified = true;
     if (file) {
       user.image = file.path;
     }
@@ -175,16 +172,6 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
   } catch (error) {
     console.error("User error: ", error);
     res.status(500).json({ message: "서버 오류" });
-  }
-});
-
-app.delete("/mypage/acctDelete", async (req, res) => {
-  try {
-    const userId = req.body.userId;
-    await User.findByIdAndDelete(userId);
-    res.status(200).send({ message: "회원탈퇴 완료" });
-  } catch (error) {
-    res.status(500).send({ message: "회원탈퇴 에러", error });
   }
 });
 

@@ -14,6 +14,7 @@ const UserSchema = new Schema({
   skill: String,
   time: String,
   introduce: String,
+  certified: { type: Boolean, default: false },
 });
 
 const UserModel = model("User", UserSchema);
