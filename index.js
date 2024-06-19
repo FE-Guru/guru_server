@@ -63,9 +63,27 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+//회원가입
+app.post("/signupok", async (req, res) => {
+  const { emailID, password, userName, nickName, phone, account } = req.body;
+  try {
+    const userDoc = await User.create({
+      emailID,
+      password: bcrypt.hashSync(password, salt),
+      userName,
+      nickName,
+      phone,
+      account,
+    });
+    res.json(userDoc);
+  } catch (e) {
+    res.status(400).json({ message: "failed", error: e.message });
+  }
+});
+
 //로그인
 app.post("/login", async (req, res) => {
-  const { emailID, password, userName, nickName } = req.body;
+  const { emailID, password, userName, nickName, phone, account } = req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
@@ -75,16 +93,21 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign({ emailID, id: userDoc._id, userName, nickName }, jwtSecret, {}, (err, token) => {
-      if (err) throw err;
-      res.cookie("token", token).json({
-        token,
-        id: userDoc._id,
-        emailID,
-        userName,
-        nickName,
-      });
-    });
+    jwt.sign(
+      { emailID, id: userDoc._id, userName, nickName, phone, account },
+      jwtSecret,
+      {},
+      (err, token) => {
+        if (err) throw err;
+        res.cookie("token", token).json({
+          token,
+          id: userDoc._id,
+          emailID,
+          userName,
+          nickName,
+        });
+      }
+    );
   } else {
     res.json({ message: "failed" });
   }
@@ -114,6 +137,8 @@ app.get("/profile", (req, res) => {
         emailID: user.emailID,
         userName: user.userName,
         nickName: user.nickName,
+        phone: user.phone,
+        account: user.account,
         certified: user.certified,
       };
       res.json(userInfo);
@@ -172,6 +197,21 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
   } catch (error) {
     console.error("User error: ", error);
     res.status(500).json({ message: "서버 오류" });
+  }
+});
+
+app.delete("/mypage/acctDelete", async (req, res) => {
+  try {
+    const token = req.headers.authorization.split(" ")[1];
+    const pickToken = jwt.verify(token, jwtSecret);
+
+    const userEmail = pickToken.emailID;
+    console.log("pickToken", pickToken);
+    await User.findOneAndDelete({ emailID: userEmail });
+
+    res.status(200).send({ message: "회원탈퇴 완료" });
+  } catch (error) {
+    res.status(500).send({ message: "회원탈퇴 에러", error });
   }
 });
 
