@@ -103,13 +103,18 @@ router.delete("/deleteJob/:id", async (req, res) => {
 
 router.get("/jobOffer", async (req, res) => {
   const token = req.cookies.token;
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 5;
+  const skip = (page - 1) * pageSize;
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
       console.error("Token error: ", err);
       return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
     }
     try {
-      const jobList = await JobPost.find({ emailID: info.emailID }).sort({ createdAt: -1 }).limit(6);
+      const totalJobs = await JobPost.countDocuments({ emailID: info.emailID });
+      const jobList = await JobPost.find({ emailID: info.emailID }).sort({ createdAt: -1 }).skip(skip).limit(pageSize);
+      res.append("X-Total-Count", totalJobs.toString());
       res.json(jobList);
     } catch (e) {
       res.json({ message: "server(500) error" });
