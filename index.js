@@ -9,6 +9,7 @@ app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
+    exposedHeaders: ["X-Total-Count"],
   })
 );
 app.use(express.json());
@@ -93,21 +94,16 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName, phone, account },
-      jwtSecret,
-      {},
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName,
+        nickName,
+      });
+    });
   } else {
     res.json({ message: "failed" });
   }
