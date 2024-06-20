@@ -19,11 +19,13 @@ router.post("/jobWrit", async (req, res) => {
       if (!user) {
         return res.status(404).json({ message: "없는 유저입니다" });
       }
+      let endDateObj = new Date(endDate);
+      endDateObj.setHours(14, 59, 0, 0);
       const jobPostDoc = await JobPost.create({
         emailID: user.emailID,
         nickName: user.nickName,
         title,
-        endDate,
+        endDate: endDateObj,
         location,
         workStartDate,
         workEndDate,
@@ -65,11 +67,13 @@ router.put("/jobEdit/:id", async (req, res) => {
       if (!user) {
         return res.status(404).json({ message: "없는 유저입니다" });
       }
+      let endDateObj = new Date(endDate);
+      endDateObj.setHours(14, 59, 0, 0);
       const jobPostDoc = await JobPost.findByIdAndUpdate(id, {
         emailID: info.emailID,
         nickName: user.nickName,
         title,
-        endDate,
+        endDate: endDateObj,
         location,
         workStartDate,
         workEndDate,
@@ -127,6 +131,15 @@ router.post("/userList", async (req, res) => {
   }
 });
 
+router.get("/findUserData/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findOne({ emailID: id });
+    res.json(user);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
 router.get("/applied", async (req, res) => {
   const token = req.cookies.token;
   jwt.verify(token, jwtSecret, async (err, info) => {
@@ -137,7 +150,7 @@ router.get("/applied", async (req, res) => {
     try {
       const jobList = await JobPost.find({
         applicants: {
-          $elemMatch: { emailID: info.emailID, status: { $in: [1, 2] } },
+          $elemMatch: { emailID: info.emailID, status: { $ne: -1 } },
         },
       })
         .sort({ createdAt: -1 })
@@ -193,7 +206,20 @@ router.put("/hiring", async (req, res) => {
 
 router.get("/findonLine", async (req, res) => {
   try {
-    const jobList = await JobPost.find({ "category.jobType": "onLine" }).sort({ createdAt: -1 }).limit(8);
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+
+    const jobList = await JobPost.find({
+      "category.jobType": "onLine",
+      status: 1,
+      endDate: { $gte: endTime },
+    })
+      .sort({ endDate: 1 })
+      .limit(8);
     res.json(jobList);
   } catch (e) {
     res.json({ message: "server(500) error" });
@@ -201,7 +227,15 @@ router.get("/findonLine", async (req, res) => {
 });
 router.get("/findoffLine", async (req, res) => {
   try {
-    const jobList = await JobPost.find({ "category.jobType": "offLine" }).sort({ createdAt: -1 }).limit(8);
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    const jobList = await JobPost.find({ "category.jobType": "offLine", status: 1, endDate: { $gte: endTime } })
+      .sort({ createdAt: -1 })
+      .limit(8);
     res.json(jobList);
   } catch (e) {
     res.json({ message: "server(500) error" });
@@ -278,29 +312,32 @@ router.put("/appCancell/:id", (req, res) => {
       return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
     }
     try {
-      const user = await User.findById(info.id);
-      if (!user) {
-        return res.status(404).json({ message: "없는 유저입니다" });
-      }
       const jobPost = await JobPost.findById(id);
       if (!jobPost) {
         return res.status(404).json({ message: "해당 공고를 찾을 수 없습니다" });
       }
-      const existingApplicant = jobPost.applicants.find((applicant) => applicant.email === user.emailID);
-      if (existingApplicant) {
-        if (existingApplicant.status === 1) {
-          existingApplicant.status = -1;
-          existingApplicant.applicationDate = new Date();
+
+      const applicant = jobPost.applicants.find((applicant) => applicant.emailID === info.emailID);
+      if (applicant) {
+        if (applicant.status === 1) {
+          //매칭 전 취소
+          applicant.status = -1;
+          applicant.applicationDate = new Date();
+        } else if (applicant.status === 2 && applicant.matched === true) {
+          //매칭 이후 취소
+          applicant.status = -1;
+          jobPost.status = -1;
         } else {
-          // 다른 상태일 경우 오류 반환
           return res.status(400).json({ message: "이미 취소된 상태입니다." });
         }
+      } else if (info.emailID === jobPost.emailID) {
+        //구직자가 취소
+        jobPost.status = -1;
       } else {
-        // 지원 기록이 없는 경우 오류 반환
         return res.status(400).json({ message: "지원 기록이 없습니다." });
       }
       await jobPost.save();
-      res.json(jobPost);
+      res.status(200).json({ message: "정상적으로 취소되었습니다.", jobPost });
     } catch (error) {
       console.error("error: ", error);
       res.status(500).json({ message: "서버 오류" });
