@@ -122,6 +122,35 @@ router.get("/jobOffer", async (req, res) => {
   });
 });
 
+router.get("/applied", async (req, res) => {
+  const token = req.cookies.token;
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 5;
+  const skip = (page - 1) * pageSize;
+  jwt.verify(token, jwtSecret, async (err, info) => {
+    if (err) {
+      console.error("Token error: ", err);
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
+    }
+    try {
+      const totalJobs = await JobPost.countDocuments({ emailID: info.emailID });
+      const jobList = await JobPost.find({
+        applicants: {
+          $elemMatch: { emailID: info.emailID, status: { $ne: -1 } },
+        },
+      })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize);
+      res.append("X-Total-Count", totalJobs.toString());
+      res.json(jobList);
+    } catch (e) {
+      console.error("Server error: ", e);
+      res.status(500).json({ message: "server(500) error" });
+    }
+  });
+});
+
 router.post("/userList", async (req, res) => {
   const itemAppli = req.body.itemAppli;
   try {
@@ -144,28 +173,6 @@ router.get("/findUserData/:id", async (req, res) => {
   } catch (e) {
     res.json({ message: "server(500) error" });
   }
-});
-router.get("/applied", async (req, res) => {
-  const token = req.cookies.token;
-  jwt.verify(token, jwtSecret, async (err, info) => {
-    if (err) {
-      console.error("Token error: ", err);
-      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
-    }
-    try {
-      const jobList = await JobPost.find({
-        applicants: {
-          $elemMatch: { emailID: info.emailID, status: { $ne: -1 } },
-        },
-      })
-        .sort({ createdAt: -1 })
-        .limit(6);
-      res.json(jobList);
-    } catch (e) {
-      console.error("Server error: ", e);
-      res.status(500).json({ message: "server(500) error" });
-    }
-  });
 });
 
 router.put("/hiring", async (req, res) => {
