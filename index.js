@@ -41,6 +41,10 @@ const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multe
 const coolsms = require("coolsms-node-sdk").default;
 const authSms = new coolsms(process.env.APIKEY, process.env.APISECRET);
 
+//mail
+const mailRoutes = require("./modules/Email");
+app.use("/gurumail", mailRoutes);
+
 app.get("/", (req, res) => {
   res.send("get request~!~!~");
 });
@@ -68,7 +72,7 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-//회원가입
+//회원가입 안내 페이지
 app.post("/signupok", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
   try {
@@ -259,6 +263,36 @@ app.post("/veriCode", async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/findacct/id", async (req, res) => {
+  const { userName, phone } = req.body;
+
+  try {
+    const user = await User.findOne({ userName, phone });
+    if (user) {
+      res.status(200).json({ emailID: user.emailID });
+    } else {
+      res.status(404).json({ message: "해당 유저가 없습니다" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+});
+
+app.post("/findacct/pw", async (req, res) => {
+  const { emailID } = req.body;
+
+  try {
+    const user = await User.findOne({ emailID });
+    if (user) {
+      res.status(200).json({ password: user.password });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
   }
 });
 
