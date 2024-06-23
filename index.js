@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const app = express();
 const port = 8000;
@@ -14,7 +15,6 @@ app.use(
 );
 app.use(express.json());
 
-//mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0
 const mongoose = require("mongoose");
 const connectUri = `mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0`;
 mongoose.connect(connectUri);
@@ -36,6 +36,10 @@ app.use(cookieParser());
 
 const multer = require("multer"); // multer 모듈 임포트
 const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multer 설정
+
+//sms
+const coolSms = require("@coolsms/node-sdk").default;
+const authSms = new coolSms(process.env.APIKEY, process.env.APISECRET);
 
 app.get("/", (req, res) => {
   res.send("get request~!~!~");
@@ -94,16 +98,21 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
-      if (err) throw err;
-      res.cookie("token", token).json({
-        token,
-        id: userDoc._id,
-        emailID,
-        userName,
-        nickName,
-      });
-    });
+    jwt.sign(
+      { emailID, id: userDoc._id, userName, nickName, phone, account },
+      jwtSecret,
+      {},
+      (err, token) => {
+        if (err) throw err;
+        res.cookie("token", token).json({
+          token,
+          id: userDoc._id,
+          emailID,
+          userName,
+          nickName,
+        });
+      }
+    );
   } else {
     res.json({ message: "failed" });
   }
@@ -208,6 +217,48 @@ app.delete("/mypage/acctDelete", async (req, res) => {
     res.status(200).send({ message: "회원탈퇴 완료" });
   } catch (error) {
     res.status(500).send({ message: "회원탈퇴 에러", error });
+  }
+});
+
+app.post("/authsms", async (req, res) => {
+  const { phone } = req.body;
+
+  try {
+    const code = Math.floor(100000 + Math.random() * 900000);
+
+    let user = await User.findOne({ phone });
+    if (user) {
+      user.auth = code;
+      await user.save();
+    } else {
+      user = new User({ phone, auth: code });
+      await user.save();
+    }
+
+    const result = await authSms.sendOne({
+      to: phone,
+      from: "01089676015",
+      text: `[GURU] 인증번호 ${code} 입니다.`,
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/veriCode", async (req, res) => {
+  const { phone, veriCode } = req.body;
+
+  try {
+    const user = await User.findOne({ phone });
+
+    if (user && user.auth.toString() === veriCode) {
+      res.status(200).json({ message: "인증 성공" });
+    } else {
+      res.status(400).json({ message: "인증 실패" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
