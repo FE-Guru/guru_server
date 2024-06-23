@@ -38,8 +38,8 @@ const multer = require("multer"); // multer 모듈 임포트
 const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multer 설정
 
 //sms
-const coolSms = require("@coolsms/node-sdk").default;
-const authSms = new coolSms(process.env.APIKEY, process.env.APISECRET);
+const coolsms = require("coolsms-node-sdk").default;
+const authSms = new coolsms(process.env.APIKEY, process.env.APISECRET);
 
 app.get("/", (req, res) => {
   res.send("get request~!~!~");
