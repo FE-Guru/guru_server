@@ -300,10 +300,47 @@ app.post('/logout', (req, res) => {
   res.cookie('token', '').json();
 });
 
-// 만족도 조사 라우트 추가
+//만족도 조사 
+const Satisfied = require('./modules/Satisfied');
+
 app.post('/satisfied', async (req, res) => {
-  console.log(req.body);
+  const {
+    emailID,
+    writerID,
+    starRating,
+    kind,
+    onTime,
+    highQuality,
+    unkind,
+    notOnTime,
+    lowQuality,
+    etc,
+    etcDescription
+  } = req.body;
+
+  const newSatisfaction = new Satisfied({
+    emailID,
+    writerID,
+    starRating,
+    kind,
+    onTime,
+    highQuality,
+    unkind,
+    notOnTime,
+    lowQuality,
+    etc,
+    etcDescription
+  });
+
+  try {
+    const savedSatisfaction = await newSatisfaction.save();
+    res.json(savedSatisfaction);
+  } catch (error) {
+    res.status(400).json({ error: 'Unable to save data' });
+  }
 });
+
+
 
 app.listen(port, () => {
   console.log('서버 실행되는중!');
