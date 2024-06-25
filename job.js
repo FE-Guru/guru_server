@@ -151,6 +151,83 @@ router.get("/applied", async (req, res) => {
   });
 });
 
+router.get("/findonLine", async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 5;
+  const skip = (page - 1) * pageSize;
+  try {
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    const totalJobs = await JobPost.countDocuments({ "category.jobType": "onLine" });
+    const jobList = await JobPost.find({
+      "category.jobType": "onLine",
+      status: 1,
+      endDate: { $gte: endTime },
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize);
+    res.append("X-Total-Count", totalJobs.toString());
+    res.json(jobList);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
+
+router.get("/findoffLine", async (req, res) => {
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (lat1 === lat2 && lon1 === lon2) {
+      return 0;
+    } else {
+      const radlat1 = (Math.PI * lat1) / 180;
+      const radlat2 = (Math.PI * lat2) / 180;
+      const theta = lon1 - lon2;
+      const radtheta = (Math.PI * theta) / 180;
+      let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+      if (dist > 1) {
+        dist = 1;
+      }
+      dist = Math.acos(dist);
+      dist = (dist * 180) / Math.PI;
+      dist = dist * 60 * 1.1515;
+      dist = dist * 1.609344;
+      return dist;
+    }
+  };
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 5;
+  const skip = (page - 1) * pageSize;
+  const userLat = parseFloat(req.query.lat);
+  const userLon = parseFloat(req.query.lon);
+  try {
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    const totalJobs = await JobPost.countDocuments({ "category.jobType": "offLine" });
+    let jobList = await JobPost.find({ "category.jobType": "offLine", status: 1, endDate: { $gte: endTime } });
+    if (!isNaN(userLat) && !isNaN(userLon)) {
+      jobList = jobList
+        .map((job) => ({
+          ...job.toObject(),
+          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+        }))
+        .sort((a, b) => a.distance - b.distance);
+    }
+    const pagingJobList = jobList.slice(skip, skip + pageSize);
+    res.append("X-Total-Count", totalJobs.toString());
+    res.json(pagingJobList);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
+
 router.post("/userList", async (req, res) => {
   const itemAppli = req.body.itemAppli;
   try {
@@ -175,6 +252,7 @@ router.get("/findUserData/:id", async (req, res) => {
   }
 });
 
+/* 매칭 */
 router.put("/hiring", async (req, res) => {
   const { jobPostID, AppliUser } = req.body;
   const token = req.cookies.token;
@@ -216,43 +294,6 @@ router.put("/hiring", async (req, res) => {
   });
 });
 
-router.get("/findonLine", async (req, res) => {
-  try {
-    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
-      const today = new Date();
-      today.setHours(hours, minutes, seconds, milliseconds);
-      return today;
-    };
-    const endTime = getTodayDateWithTime(14, 59, 0, 0);
-
-    const jobList = await JobPost.find({
-      "category.jobType": "onLine",
-      status: 1,
-      endDate: { $gte: endTime },
-    })
-      .sort({ endDate: 1 })
-      .limit(8);
-    res.json(jobList);
-  } catch (e) {
-    res.json({ message: "server(500) error" });
-  }
-});
-router.get("/findoffLine", async (req, res) => {
-  try {
-    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
-      const today = new Date();
-      today.setHours(hours, minutes, seconds, milliseconds);
-      return today;
-    };
-    const endTime = getTodayDateWithTime(14, 59, 0, 0);
-    const jobList = await JobPost.find({ "category.jobType": "offLine", status: 1, endDate: { $gte: endTime } })
-      .sort({ createdAt: -1 })
-      .limit(8);
-    res.json(jobList);
-  } catch (e) {
-    res.json({ message: "server(500) error" });
-  }
-});
 router.get("/JobDetail/:id", async (req, res) => {
   const { id } = req.params;
   try {
