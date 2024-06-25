@@ -178,6 +178,7 @@ router.get("/findonLine", async (req, res) => {
   }
 });
 
+
 router.get("/findoffLine", async (req, res) => {
   const getDistance = (lat1, lon1, lat2, lon2) => {
     if (lat1 === lat2 && lon1 === lon2) {
@@ -198,11 +199,16 @@ router.get("/findoffLine", async (req, res) => {
       return dist;
     }
   };
+
   const page = parseInt(req.query.page) || 1;
   const pageSize = 5;
   const skip = (page - 1) * pageSize;
   const userLat = parseFloat(req.query.lat);
   const userLon = parseFloat(req.query.lon);
+
+  // 현재 위치를 콘솔에 출력
+  console.log('현재 위치', { lat: userLat, lon: userLon });
+
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
       const today = new Date();
@@ -211,22 +217,31 @@ router.get("/findoffLine", async (req, res) => {
     };
     const endTime = getTodayDateWithTime(14, 59, 0, 0);
     const totalJobs = await JobPost.countDocuments({ "category.jobType": "offLine" });
-    let jobList = await JobPost.find({ "category.jobType": "offLine", status: 1, endDate: { $gte: endTime } });
+
+    let jobList = await JobPost.find({
+      "category.jobType": "offLine",
+      status: 1,
+      endDate: { $gte: endTime }
+    });
+
     if (!isNaN(userLat) && !isNaN(userLon)) {
       jobList = jobList
         .map((job) => ({
           ...job.toObject(),
-          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX)
         }))
         .sort((a, b) => a.distance - b.distance);
     }
+
     const pagingJobList = jobList.slice(skip, skip + pageSize);
+
     res.append("X-Total-Count", totalJobs.toString());
     res.json(pagingJobList);
   } catch (e) {
-    res.json({ message: "server(500) error" });
+    res.status(500).json({ message: "server(500) error" });
   }
 });
+
 
 router.post("/userList", async (req, res) => {
   const itemAppli = req.body.itemAppli;
