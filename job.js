@@ -117,7 +117,7 @@ router.get("/jobOffer", async (req, res) => {
       res.append("X-Total-Count", totalJobs.toString());
       res.json(jobList);
     } catch (e) {
-      res.json({ message: "server(500) error" });
+      res.status(500).json({ message: "server(500) error" });
     }
   });
 });
@@ -178,6 +178,26 @@ router.get("/findonLine", async (req, res) => {
   }
 });
 
+router.get("/allonLine", async (req, res) => {
+  const titleText = req.query.titleText;
+  try {
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    const jobList = await JobPost.find({
+      "category.jobType": "onLine",
+      title: { $regex: titleText, $options: "i" },
+      status: 1,
+      endDate: { $gte: endTime },
+    }).sort({ createdAt: -1 });
+    res.json(jobList);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
 
 router.get("/findoffLine", async (req, res) => {
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -206,9 +226,6 @@ router.get("/findoffLine", async (req, res) => {
   const userLat = parseFloat(req.query.lat);
   const userLon = parseFloat(req.query.lon);
 
-  // 현재 위치를 콘솔에 출력
-  console.log('현재 위치', { lat: userLat, lon: userLon });
-
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
       const today = new Date();
@@ -221,20 +238,18 @@ router.get("/findoffLine", async (req, res) => {
     let jobList = await JobPost.find({
       "category.jobType": "offLine",
       status: 1,
-      endDate: { $gte: endTime }
+      endDate: { $gte: endTime },
     });
 
     if (!isNaN(userLat) && !isNaN(userLon)) {
       jobList = jobList
         .map((job) => ({
           ...job.toObject(),
-          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX)
+          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
         }))
         .sort((a, b) => a.distance - b.distance);
     }
-
     const pagingJobList = jobList.slice(skip, skip + pageSize);
-
     res.append("X-Total-Count", totalJobs.toString());
     res.json(pagingJobList);
   } catch (e) {
@@ -242,6 +257,50 @@ router.get("/findoffLine", async (req, res) => {
   }
 });
 
+router.get("/alloffLine", async (req, res) => {
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (lat1 === lat2 && lon1 === lon2) {
+      return 0;
+    } else {
+      const radlat1 = (Math.PI * lat1) / 180;
+      const radlat2 = (Math.PI * lat2) / 180;
+      const theta = lon1 - lon2;
+      const radtheta = (Math.PI * theta) / 180;
+      let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+      if (dist > 1) {
+        dist = 1;
+      }
+      dist = Math.acos(dist);
+      dist = (dist * 180) / Math.PI;
+      dist = dist * 60 * 1.1515;
+      dist = dist * 1.609344;
+      return dist;
+    }
+  };
+  const titleText = req.query.titleText;
+  const userLat = parseFloat(req.query.lat);
+  const userLon = parseFloat(req.query.lon);
+  try {
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    let jobList = await JobPost.find({ "category.jobType": "offLine", title: { $regex: titleText, $options: "i" }, status: 1, endDate: { $gte: endTime } });
+    if (!isNaN(userLat) && !isNaN(userLon)) {
+      jobList = jobList
+        .map((job) => ({
+          ...job.toObject(),
+          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+        }))
+        .sort((a, b) => a.distance - b.distance);
+    }
+    res.json(jobList);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
 
 router.post("/userList", async (req, res) => {
   const itemAppli = req.body.itemAppli;
