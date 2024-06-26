@@ -4,13 +4,13 @@ const satisfiedSchema = new mongoose.Schema({
   emailID: { type: String, required: true },
   writerID: { type: String, required: true },
   starRating: { type: Number, required: true },
-  kind: { type: Boolean, required: true },
-  onTime: { type: Boolean, required: true },
-  highQuality: { type: Boolean, required: true },
-  unkind: { type: Boolean, required: true },
-  notOnTime: { type: Boolean, required: true },
-  lowQuality: { type: Boolean, required: true },
-  etc: { type: Boolean, required: true },
+  kind: { type: Number, required: true },
+  onTime: { type: Number, required: true },
+  highQuality: { type: Number, required: true },
+  unkind: { type: Number, required: true },
+  notOnTime: { type: Number, required: true },
+  lowQuality: { type: Number, required: true },
+  etc: { type: Number, required: true },
   etcDescription: { type: String, default: '' }
 });
 
