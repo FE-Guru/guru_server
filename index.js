@@ -105,21 +105,16 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName, phone, account },
-      jwtSecret,
-      {},
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName,
+        nickName,
+      });
+    });
   } else {
     res.json({ message: "failed" });
   }
@@ -174,19 +169,9 @@ app.get("/findUser/:id", async (req, res) => {
 app.put("/profileWrite", upload.single("files"), async (req, res) => {
   const token = req.cookies.token;
   const { career, certi, skill, time, introduce } = req.body;
-
-  const { originalname, path } = req.file;
-  const part = originalname.split(".");
-  const ext = part[part.length - 1];
-  const newPath = path + "." + ext;
-  fs.renameSync(path, newPath);
-
-  console.log("file:", path, newPath);
-  console.log("Body:", req.body);
   if (!token) {
     return res.status(401).json({ message: "토큰이 없습니다" });
   }
-
   let emailID, _id;
   try {
     const decoded = jwt.verify(token, jwtSecret);
@@ -195,13 +180,20 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
   } catch (err) {
     return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
   }
-
+  let newPath = null;
+  if (req.file) {
+    const { originalname, path } = req.file;
+    const part = originalname.split(".");
+    const ext = part[part.length - 1];
+    newPath = path + "." + ext;
+    fs.renameSync(path, newPath);
+    console.log("file:", path, newPath);
+  }
   try {
     const user = await User.findById(_id);
     if (!user) {
       return res.status(404).json({ message: "없는 유저입니다" });
     }
-
     // 사용자 정보 업데이트
     user.career = career || user.career;
     user.certi = certi || user.certi;
@@ -209,19 +201,9 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     user.time = time || user.time;
     user.introduce = introduce || user.introduce;
     user.certified = true;
-    if (newPath) {
-      user.image = newPath;
-    } else {
-      user.image = null;
-    }
+    user.image = newPath ? newPath : user.image;
     await user.save();
-
-    const userInfo = {
-      emailID: user.emailID,
-      nickName: user.nickName,
-    };
-
-    res.json({ message: "Profile updated successfully", userInfo });
+    res.json({ message: "Profile updated successfully", user });
   } catch (error) {
     console.error("User error: ", error);
     res.status(500).json({ message: "서버 오류" });
@@ -308,19 +290,7 @@ app.post("/logout", (req, res) => {
 const Satisfied = require("./modules/Satisfied");
 
 app.post("/satisfied", async (req, res) => {
-  const {
-    emailID,
-    writerID,
-    starRating,
-    kind,
-    onTime,
-    highQuality,
-    unkind,
-    notOnTime,
-    lowQuality,
-    etc,
-    etcDescription,
-  } = req.body;
+  const { emailID, writerID, starRating, kind, onTime, highQuality, unkind, notOnTime, lowQuality, etc, etcDescription, postID } = req.body;
 
   const newSatisfaction = new Satisfied({
     emailID,
