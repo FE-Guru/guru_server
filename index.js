@@ -34,8 +34,12 @@ const jwtSecret = "hjetydghnmjklghrtwijoerjkufgshjbkl";
 const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
+//멀터 및 이미지 업로드
+const fs = require("fs");
 const multer = require("multer"); // multer 모듈 임포트
 const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multer 설정
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //mail
 const mailRoutes = require("./modules/Email");
@@ -76,9 +80,7 @@ const client = require("twilio")(accountSid, authToken);
 app.post("/sendsms", (req, res) => {
   const { phone } = req.body;
   if (!phone) {
-    return res
-      .status(400)
-      .json({ success: false, error: "Phone number is required" });
+    return res.status(400).json({ success: false, error: "Phone number is required" });
   }
   const authNum = Math.floor(100000 + Math.random() * 900000);
 
@@ -88,9 +90,7 @@ app.post("/sendsms", (req, res) => {
       body: `[GURU] 인증번호는 [${authNum}] 입니다. 정확히 입력해주세요.`,
       to: phone,
     })
-    .then((message) =>
-      res.json({ success: true, sid: message.sid, auth: authNum })
-    )
+    .then((message) => res.json({ success: true, sid: message.sid, auth: authNum }))
     .catch((error) => {
       console.error("Twilio error:", error);
       res.status(500).json({ success: false, error: error.message });
@@ -127,21 +127,16 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName, phone, account },
-      jwtSecret,
-      {},
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName,
+        nickName,
+      });
+    });
   } else {
     res.json({ message: "failed" });
   }
@@ -183,13 +178,28 @@ app.get("/profile", (req, res) => {
   });
 });
 
-app.put("/profileWrite", upload.single("files"), async (req, res) => {
-  const { career, certi, skill, time, introduce } = req.body;
-  const file = req.file;
-  console.log("File:", file); // 업로드된 파일 정보 출력
-  console.log("Body:", req.body); // 요청 본문 데이터 출력
-  const token = req.cookies.token;
+app.get("/findUser/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findOne({ emailID: id });
+    res.json(user);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
 
+app.put("/profileWrite", upload.single("files"), async (req, res) => {
+  const token = req.cookies.token;
+  const { career, certi, skill, time, introduce } = req.body;
+
+  const { originalname, path } = req.file;
+  const part = originalname.split(".");
+  const ext = part[part.length - 1];
+  const newPath = path + "." + ext;
+  fs.renameSync(path, newPath);
+
+  console.log("file:", path, newPath);
+  console.log("Body:", req.body); // 요청 본문 데이터 출력
   if (!token) {
     return res.status(401).json({ message: "토큰이 없습니다" });
   }
@@ -216,10 +226,11 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     user.time = time || user.time;
     user.introduce = introduce || user.introduce;
     user.certified = true;
-    if (file) {
-      user.image = file.path;
+    if (newPath) {
+      user.image = newPath;
+    } else {
+      user.image = null;
     }
-
     await user.save();
 
     const userInfo = {
@@ -287,19 +298,7 @@ app.post("/logout", (req, res) => {
 const Satisfied = require("./modules/Satisfied");
 
 app.post("/satisfied", async (req, res) => {
-  const {
-    emailID,
-    writerID,
-    starRating,
-    kind,
-    onTime,
-    highQuality,
-    unkind,
-    notOnTime,
-    lowQuality,
-    etc,
-    etcDescription,
-  } = req.body;
+  const { emailID, writerID, starRating, kind, onTime, highQuality, unkind, notOnTime, lowQuality, etc, etcDescription } = req.body;
 
   const newSatisfaction = new Satisfied({
     emailID,
