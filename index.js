@@ -178,7 +178,7 @@ app.get("/profile", (req, res) => {
   });
 });
 
-router.get("/findUser/:id", async (req, res) => {
+app.get("/findUser/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const user = await User.findOne({ emailID: id });
