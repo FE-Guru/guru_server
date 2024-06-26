@@ -45,11 +45,15 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const mailRoutes = require("./modules/Email");
 app.use("/gurumail", mailRoutes);
 
+//회원가입 폰인증
+const twilio = require("./twilio");
+app.use("/sendsms", twilio);
+
 app.get("/", (req, res) => {
   res.send("get request~!~!~");
 });
 
-//Job부분 개발 예정
+//job
 const jobRouter = require("./job");
 app.use("/job", jobRouter);
 
@@ -67,34 +71,8 @@ app.post("/signup", async (req, res) => {
     });
     res.json(userDoc);
   } catch (e) {
-    /* unique true, 이미 존재하는 아이디일 경우 에러 발생  */
     res.status(400).json({ message: "failed", error: e.message });
   }
-});
-
-//회원가입 문자인증
-const accountSid = process.env.SID;
-const authToken = process.env.TOKEN;
-const client = require("twilio")(accountSid, authToken);
-
-app.post("/sendsms", (req, res) => {
-  const { phone } = req.body;
-  if (!phone) {
-    return res.status(400).json({ success: false, error: "Phone number is required" });
-  }
-  const authNum = Math.floor(100000 + Math.random() * 900000);
-
-  client.messages
-    .create({
-      from: process.env.TWILIO_FROM,
-      body: `[GURU] 인증번호는 [${authNum}] 입니다. 정확히 입력해주세요.`,
-      to: phone,
-    })
-    .then((message) => res.json({ success: true, sid: message.sid, auth: authNum }))
-    .catch((error) => {
-      console.error("Twilio error:", error);
-      res.status(500).json({ success: false, error: error.message });
-    });
 });
 
 //회원가입 안내 페이지
@@ -127,21 +105,27 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
-      if (err) throw err;
-      res.cookie("token", token).json({
-        token,
-        id: userDoc._id,
-        emailID,
-        userName,
-        nickName,
-      });
-    });
+    jwt.sign(
+      { emailID, id: userDoc._id, userName, nickName, phone, account },
+      jwtSecret,
+      {},
+      (err, token) => {
+        if (err) throw err;
+        res.cookie("token", token).json({
+          token,
+          id: userDoc._id,
+          emailID,
+          userName,
+          nickName,
+        });
+      }
+    );
   } else {
     res.json({ message: "failed" });
   }
 });
 
+//header 에서
 app.get("/profile", (req, res) => {
   const token = req.cookies.token;
 
@@ -161,7 +145,6 @@ app.get("/profile", (req, res) => {
       if (!user) {
         return res.status(404).json({ message: "없는 유저입니다" });
       }
-
       const userInfo = {
         emailID: user.emailID,
         userName: user.userName,
@@ -199,7 +182,7 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
   fs.renameSync(path, newPath);
 
   console.log("file:", path, newPath);
-  console.log("Body:", req.body); // 요청 본문 데이터 출력
+  console.log("Body:", req.body);
   if (!token) {
     return res.status(401).json({ message: "토큰이 없습니다" });
   }
@@ -245,7 +228,8 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
   }
 });
 
-app.delete("/mypage/acctDelete", async (req, res) => {
+//회원탈퇴
+app.delete("/mypage/acctdelete", async (req, res) => {
   try {
     const token = req.headers.authorization.split(" ")[1];
     const pickToken = jwt.verify(token, jwtSecret);
@@ -260,6 +244,31 @@ app.delete("/mypage/acctDelete", async (req, res) => {
   }
 });
 
+//회원정보 수정
+app.post("/mypage/personaledit", async (req, res) => {
+  const { emailID, password, nickName, phone, account } = req.body;
+
+  try {
+    const user = await User.findOne({ emailID });
+
+    if (user) {
+      user.password = password || user.password;
+      user.nickName = nickName || user.nickName;
+      user.phone = phone || user.phone;
+      user.account = account || user.account;
+
+      await user.save();
+      res.status(200).send("유저 정보 수정 성공");
+    } else {
+      res.status(404).send("없는 유저입니다.");
+    }
+  } catch (error) {
+    console.error("유저정보 수정중 에러발생:", error);
+    res.status(500).send("서버에러");
+  }
+});
+
+//아이디찾기
 app.post("/findacct/id", async (req, res) => {
   const { userName, phone } = req.body;
 
@@ -275,6 +284,7 @@ app.post("/findacct/id", async (req, res) => {
   }
 });
 
+//비번찾기
 app.post("/findacct/pw", async (req, res) => {
   const { emailID } = req.body;
 
@@ -298,7 +308,19 @@ app.post("/logout", (req, res) => {
 const Satisfied = require("./modules/Satisfied");
 
 app.post("/satisfied", async (req, res) => {
-  const { emailID, writerID, starRating, kind, onTime, highQuality, unkind, notOnTime, lowQuality, etc, etcDescription } = req.body;
+  const {
+    emailID,
+    writerID,
+    starRating,
+    kind,
+    onTime,
+    highQuality,
+    unkind,
+    notOnTime,
+    lowQuality,
+    etc,
+    etcDescription,
+  } = req.body;
 
   const newSatisfaction = new Satisfied({
     emailID,
