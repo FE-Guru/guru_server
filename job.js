@@ -151,6 +151,78 @@ router.get("/applied", async (req, res) => {
   });
 });
 
+router.get("/mainOnline", async (req, res) => {
+  try {
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    const jobList = await JobPost.find({
+      "category.jobType": "onLine",
+      status: 1,
+      endDate: { $gte: endTime },
+    })
+      .sort({ createdAt: -1 })
+      .limit(4);
+    res.json(jobList);
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
+router.get("/mainOffline", async (req, res) => {
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (lat1 === lat2 && lon1 === lon2) {
+      return 0;
+    } else {
+      const radlat1 = (Math.PI * lat1) / 180;
+      const radlat2 = (Math.PI * lat2) / 180;
+      const theta = lon1 - lon2;
+      const radtheta = (Math.PI * theta) / 180;
+      let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+      if (dist > 1) {
+        dist = 1;
+      }
+      dist = Math.acos(dist);
+      dist = (dist * 180) / Math.PI;
+      dist = dist * 60 * 1.1515;
+      dist = dist * 1.609344;
+      return dist;
+    }
+  };
+  const userLat = parseFloat(req.query.lat);
+  const userLon = parseFloat(req.query.lon);
+  try {
+    const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
+      const today = new Date();
+      today.setHours(hours, minutes, seconds, milliseconds);
+      return today;
+    };
+    const endTime = getTodayDateWithTime(14, 59, 0, 0);
+    let jobList = await JobPost.find({
+      "category.jobType": "offLine",
+      status: 1,
+      endDate: { $gte: endTime },
+    });
+
+    if (!isNaN(userLat) && !isNaN(userLon)) {
+      jobList = jobList
+        .map((job) => ({
+          ...job.toObject(),
+          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+        }))
+        .sort((a, b) => a.distance - b.distance);
+    }
+    console.log("joblist", jobList.length);
+    const pagingJobList = jobList.slice(0, 3);
+    console.log("paginglist", pagingJobList.length);
+    res.json(pagingJobList);
+  } catch (e) {
+    res.status(500).json({ message: "server(500) error" });
+  }
+});
+
 router.get("/findonLine", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = 5;
