@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const satisfiedSchema = new mongoose.Schema({
+  Post_id: { type: String, required: true },
   emailID: { type: String, required: true },
   writerID: { type: String, required: true },
   starRating: { type: Number, required: true },
