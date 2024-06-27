@@ -8,7 +8,7 @@ const nodemailer = require("nodemailer");
 const router = express.Router();
 
 const transporter = nodemailer.createTransport({
-  service: "Gmail",
+  service: "gmail",
   auth: {
     user: process.env.EMAIL,
     pass: process.env.PASSWORD,
@@ -27,16 +27,24 @@ router.post("/findacct/pw", async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = bcrypt.hashSync(resetToken, bcrypt.genSaltSync(10));
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1시간
+    user.resetPasswordExpires = Date.now() + 3600000; // 비번을 찾는 시간이 1시간으로 제한됨
     await user.save();
 
-    const resetLink = `https://your-domain.com/reset-password?token=${resetToken}&email=${emailID}`;
+    const resetLink = `http://localhost:3000/resetpassword?token=${resetToken}&email=${emailID}`;
 
     // 비번 재설정 링크 전송
     await transporter.sendMail({
       to: emailID,
       subject: "[GURU] 비밀번호 재전송 링크입니다.",
-      text: `비밀번호 재설정을 위해 링크를 눌러주세요. ${resetLink}`,
+      text: `안녕하세요. GURU 입니다. 
+
+      회원님의 비밀번호 재설정을 위해 링크를 눌러주세요. 
+      비밀번호 재설정 링크 : ${resetLink}
+      링크는 1시간 뒤에 만료됩니다.
+
+      만약 비밀번호 재설정을 요청한 적이 없다면 이 이메일을 무시해주세요.
+      감사합니다.
+      [GURU]`,
     });
     res.status(200).json({ message: "재설정 링크 전송" });
   } catch (error) {
@@ -44,7 +52,7 @@ router.post("/findacct/pw", async (req, res) => {
   }
 });
 
-router.post("/reset-password", async (req, res) => {
+router.post("/resetpassword", async (req, res) => {
   const { token, email, newPassword } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -56,7 +64,7 @@ router.post("/reset-password", async (req, res) => {
     // 토큰 유효성 확인
     const isTokenValid = bcrypt.compareSync(token, user.resetPasswordToken);
     if (!isTokenValid || user.resetPasswordExpires < Date.now()) {
-      return res.status(400).json({ message: "Invalid or expired token" });
+      return res.status(400).json({ message: "정확하지 않거나 만료된 토큰" });
     }
 
     // 새로운 비번 업데이트
