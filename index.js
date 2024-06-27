@@ -1,69 +1,78 @@
-require('dotenv').config();
-const express = require('express');
+require("dotenv").config();
+const express = require("express");
 const app = express();
 const port = 8000;
 
-const cors = require('cors');
+const cors = require("cors");
 
 //cors issue
 app.use(
   cors({
-    origin: 'http://localhost:3000',
+    origin: "http://localhost:3000",
     credentials: true,
-    exposedHeaders: ['X-Total-Count'],
+    exposedHeaders: ["X-Total-Count"],
   })
 );
 app.use(express.json());
 
-const mongoose = require('mongoose');
-const connectUri = `mongodb+srv://guru:guru@cluster0.gio7a74.mongodb.net/guru?retryWrites=true&w=majority&appName=Cluster0`;
-mongoose.connect(connectUri);
+const mongoose = require("mongoose");
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 
 // models
-const User = require('./modules/User');
-const Satisfied = require('./modules/Satisfied');
-const JobPost = require('./modules/JobPost');
+const User = require("./modules/User");
+const Satisfied = require("./modules/Satisfied");
+const JobPost = require("./modules/JobPost");
 
 //비번암호화
-const bcrypt = require('bcryptjs');
+const bcrypt = require("bcryptjs");
 const salt = bcrypt.genSaltSync(10);
 
 //토큰
-const jwt = require('jsonwebtoken');
-const jwtSecret = 'hjetydghnmjklghrtwijoerjkufgshjbkl';
+const jwt = require("jsonwebtoken");
+const jwtSecret = process.env.SECRET_KEY;
 
 //쿠키
-const cookieParser = require('cookie-parser');
+const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
 //멀터 및 이미지 업로드
-const fs = require('fs');
-const multer = require('multer'); // multer 모듈 임포트
-const upload = multer({ dest: 'uploads/' }); // 파일 업로드를 위한 multer 설정
-const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const fs = require("fs");
+const multer = require("multer"); // multer 모듈 임포트
+const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multer 설정
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //mail
-const mailRoutes = require('./modules/Email');
-app.use('/gurumail', mailRoutes);
+const mailRouter = require("./modules/Email");
+app.use("/gurumail", mailRouter);
 
 //회원가입 폰인증
-const twilio = require('./twilio');
-app.use('/sendsms', twilio);
+const twilio = require("./twilio");
+app.use("/sendsms", twilio);
 
-app.get('/', (req, res) => {
-  res.send('get request~!~!~');
+app.get("/", (req, res) => {
+  res.send("get request~!~!~");
 });
 
 //job
-const jobRouter = require('./job');
-const { log } = require('console');
-app.use('/job', jobRouter);
+const jobRouter = require("./job");
+const { log } = require("console");
+app.use("/job", jobRouter);
 
 //회원가입
-app.post('/signup', async (req, res) => {
+app.post("/signup", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
   try {
+    // 이메일아이디 중복 체크
+    const existUser = await User.findOne({ emailID });
+    if (existUser) {
+      return res
+        .status(409)
+        .json({ message: "이미 존재하는 이메일아이디 입니다." });
+    }
     const userDoc = await User.create({
       emailID,
       password: bcrypt.hashSync(password, salt),
@@ -74,12 +83,12 @@ app.post('/signup', async (req, res) => {
     });
     res.json(userDoc);
   } catch (e) {
-    res.status(400).json({ message: 'failed', error: e.message });
+    res.status(400).json({ message: "failed", error: e.message });
   }
 });
 
 //회원가입 안내 페이지
-app.post('/signupok', async (req, res) => {
+app.post("/signupok", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
   try {
     const userDoc = await User.create({
@@ -92,17 +101,17 @@ app.post('/signupok', async (req, res) => {
     });
     res.json(userDoc);
   } catch (e) {
-    res.status(400).json({ message: 'failed', error: e.message });
+    res.status(400).json({ message: "failed", error: e.message });
   }
 });
 
 //로그인
-app.post('/login', async (req, res) => {
+app.post("/login", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
-    res.json({ message: 'no user' });
+    res.json({ message: "no user" });
     return;
   }
 
@@ -114,7 +123,7 @@ app.post('/login', async (req, res) => {
       {},
       (err, token) => {
         if (err) throw err;
-        res.cookie('token', token).json({
+        res.cookie("token", token).json({
           token,
           id: userDoc._id,
           emailID,
@@ -124,28 +133,28 @@ app.post('/login', async (req, res) => {
       }
     );
   } else {
-    res.json({ message: 'failed' });
+    res.json({ message: "failed" });
   }
 });
 
-app.get('/profile', (req, res) => {
+app.get("/profile", (req, res) => {
   const token = req.cookies.token;
 
   if (!token) {
-    return res.status(401).json({ message: '토큰이 없습니다' });
+    return res.status(401).json({ message: "토큰이 없습니다" });
   }
-  console.log('token : ', token);
+  // console.log("token : ", token);
 
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
-      console.error('Token error: ', err);
-      return res.status(401).json({ message: '유효하지 않은 토큰입니다' });
+      console.error("Token error: ", err);
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
     }
 
     try {
       const user = await User.findById(info.id);
       if (!user) {
-        return res.status(404).json({ message: '없는 유저입니다' });
+        return res.status(404).json({ message: "없는 유저입니다" });
       }
       const userInfo = {
         emailID: user.emailID,
@@ -157,27 +166,27 @@ app.get('/profile', (req, res) => {
       };
       res.json(userInfo);
     } catch (error) {
-      console.error('User error: ', error);
-      res.status(500).json({ message: '서버 오류' });
+      console.error("User error: ", error);
+      res.status(500).json({ message: "서버 오류" });
     }
   });
 });
 
-app.get('/findUser/:id', async (req, res) => {
+app.get("/findUser/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const user = await User.findOne({ emailID: id });
     res.json(user);
   } catch (e) {
-    res.json({ message: 'server(500) error' });
+    res.json({ message: "server(500) error" });
   }
 });
 
-app.put('/profileWrite', upload.single('files'), async (req, res) => {
+app.put("/profileWrite", upload.single("files"), async (req, res) => {
   const token = req.cookies.token;
   const { career, certi, skill, time, introduce } = req.body;
   if (!token) {
-    return res.status(401).json({ message: '토큰이 없습니다' });
+    return res.status(401).json({ message: "토큰이 없습니다" });
   }
   let emailID, _id;
   try {
@@ -185,21 +194,21 @@ app.put('/profileWrite', upload.single('files'), async (req, res) => {
     emailID = decoded.emailID;
     _id = decoded.id;
   } catch (err) {
-    return res.status(401).json({ message: '유효하지 않은 토큰입니다' });
+    return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
   }
   let newPath = null;
   if (req.file) {
     const { originalname, path } = req.file;
-    const part = originalname.split('.');
+    const part = originalname.split(".");
     const ext = part[part.length - 1];
-    newPath = path + '.' + ext;
+    newPath = path + "." + ext;
     fs.renameSync(path, newPath);
-    console.log('file:', path, newPath);
+    console.log("file:", path, newPath);
   }
   try {
     const user = await User.findById(_id);
     if (!user) {
-      return res.status(404).json({ message: '없는 유저입니다' });
+      return res.status(404).json({ message: "없는 유저입니다" });
     }
     // 사용자 정보 업데이트
     user.career = career || user.career;
@@ -210,31 +219,31 @@ app.put('/profileWrite', upload.single('files'), async (req, res) => {
     user.certified = true;
     user.image = newPath ? newPath : user.image;
     await user.save();
-    res.json({ message: 'Profile updated successfully', user });
+    res.json({ message: "Profile updated successfully", user });
   } catch (error) {
-    console.error('User error: ', error);
-    res.status(500).json({ message: '서버 오류' });
+    console.error("User error: ", error);
+    res.status(500).json({ message: "서버 오류" });
   }
 });
 
 //회원탈퇴
-app.delete('/mypage/acctdelete', async (req, res) => {
+app.delete("/mypage/acctdelete", async (req, res) => {
   try {
-    const token = req.headers.authorization.split(' ')[1];
-    const pickToken = jwt.verify(token, jwtSecret);
+    const token = req.headers.authorization.split(" ")[1];
+    // const pickToken = jwt.verify(token, jwtSecret);
 
     const userEmail = pickToken.emailID;
-    console.log('pickToken', pickToken);
+    console.log("pickToken", pickToken);
     await User.findOneAndDelete({ emailID: userEmail });
 
-    res.status(200).send({ message: '회원탈퇴 완료' });
+    res.status(200).send({ message: "회원탈퇴 완료" });
   } catch (error) {
-    res.status(500).send({ message: '회원탈퇴 에러', error });
+    res.status(500).send({ message: "회원탈퇴 에러", error });
   }
 });
 
 //회원정보 수정
-app.post('/mypage/personaledit', async (req, res) => {
+app.post("/mypage/personaledit", async (req, res) => {
   const { emailID, password, nickName, phone, account } = req.body;
 
   try {
@@ -243,7 +252,7 @@ app.post('/mypage/personaledit', async (req, res) => {
     const user = await User.findOne({ emailID });
 
     if (!user) {
-      return res.status(404).json({ message: '없는 유저입니다.' });
+      return res.status(404).json({ message: "없는 유저입니다." });
     }
 
     if (password) {
@@ -279,20 +288,20 @@ app.post('/mypage/personaledit', async (req, res) => {
     );
 
     res.status(200).json({
-      message: '유저 정보 수정 성공',
+      message: "유저 정보 수정 성공",
       token: token,
       isPwChanged: isPwChanged,
       isUpdated: isUpdated,
       emailID: user.emailID,
     });
   } catch (error) {
-    console.error('유저정보 수정중 에러발생:', error);
-    res.status(500).json({ message: '서버에러' });
+    console.error("유저정보 수정중 에러발생:", error);
+    res.status(500).json({ message: "서버에러" });
   }
 });
 
 //아이디찾기
-app.post('/findacct/id', async (req, res) => {
+app.post("/findacct/id", async (req, res) => {
   const { userName, phone } = req.body;
 
   try {
@@ -300,15 +309,15 @@ app.post('/findacct/id', async (req, res) => {
     if (user) {
       res.status(200).json({ emailID: user.emailID });
     } else {
-      res.status(404).json({ message: '해당 유저가 없습니다' });
+      res.status(404).json({ message: "해당 유저가 없습니다" });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    res.status(500).json({ message: "Server error", error });
   }
 });
 
 //비번찾기
-app.post('/findacct/pw', async (req, res) => {
+app.post("/findacct/pw", async (req, res) => {
   const { emailID } = req.body;
 
   try {
@@ -316,19 +325,19 @@ app.post('/findacct/pw', async (req, res) => {
     if (user) {
       res.status(200).json({ password: user.password });
     } else {
-      res.status(404).json({ message: '해당 유저가 없습니다' });
+      res.status(404).json({ message: "해당 유저가 없습니다" });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    res.status(500).json({ message: "Server error", error });
   }
 });
 
-app.post('/logout', (req, res) => {
-  res.cookie('token', '').json();
+app.post("/logout", (req, res) => {
+  res.cookie("token", "").json();
 });
 
 //만족도 조사
-app.post('/satisfied', async (req, res) => {
+app.post("/satisfied", async (req, res) => {
   const {
     Post_id,
     emailID,
@@ -365,10 +374,10 @@ app.post('/satisfied', async (req, res) => {
 
     // jobPost._id 와 Post_id 가 같은 데이터를 찾아서 업데이트
     const jobPost = await JobPost.findOne({ _id: Post_id });
-    console.log('찾은 JobPost ---', jobPost);
+    console.log("찾은 JobPost ---", jobPost);
 
     if (!jobPost) {
-      return res.status(404).json({ error: 'Job post not found' });
+      return res.status(404).json({ error: "Job post not found" });
     }
 
     // 작성자가 만족도 조사를 하는 경우
@@ -389,10 +398,10 @@ app.post('/satisfied', async (req, res) => {
   } catch (error) {
     res
       .status(400)
-      .json({ error: 'Unable to save data or update job post status' });
+      .json({ error: "Unable to save data or update job post status" });
   }
 });
 
 app.listen(port, () => {
-  console.log('서버 실행되는중!');
+  console.log("서버 실행되는중!");
 });
