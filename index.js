@@ -105,22 +105,26 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
-      if (err) throw err;
-      res.cookie("token", token).json({
-        token,
-        id: userDoc._id,
-        emailID,
-        userName,
-        nickName,
-      });
-    });
+    jwt.sign(
+      { emailID, id: userDoc._id, userName, nickName, phone, account },
+      jwtSecret,
+      {},
+      (err, token) => {
+        if (err) throw err;
+        res.cookie("token", token).json({
+          token,
+          id: userDoc._id,
+          emailID,
+          userName,
+          nickName,
+        });
+      }
+    );
   } else {
     res.json({ message: "failed" });
   }
 });
 
-//header 에서
 app.get("/profile", (req, res) => {
   const token = req.cookies.token;
 
@@ -231,22 +235,56 @@ app.post("/mypage/personaledit", async (req, res) => {
   const { emailID, password, nickName, phone, account } = req.body;
 
   try {
+    let isPwChanged = false;
+    let isUpdated = false;
     const user = await User.findOne({ emailID });
 
-    if (user) {
-      user.password = password || user.password;
-      user.nickName = nickName || user.nickName;
-      user.phone = phone || user.phone;
-      user.account = account || user.account;
-
-      await user.save();
-      res.status(200).send("유저 정보 수정 성공");
-    } else {
-      res.status(404).send("없는 유저입니다.");
+    if (!user) {
+      return res.status(404).json({ message: "없는 유저입니다." });
     }
+
+    if (password) {
+      const isSamePw = await bcrypt.compare(password, user.password);
+      if (!isSamePw) {
+        user.password = await bcrypt.hash(password, 10);
+        isPwChanged = true;
+        isUpdated = true;
+      }
+    }
+    if (
+      user.nickName !== nickName ||
+      user.phone !== phone ||
+      user.account !== account
+    ) {
+      user.nickName = nickName;
+      user.phone = phone;
+      user.account = account;
+      isUpdated = true;
+    }
+    await user.save();
+
+    const token = jwt.sign(
+      {
+        emailID: user.emailID,
+        id: user._id,
+        nickName: user.nickName,
+        phone: user.phone,
+        account: user.account,
+      },
+      jwtSecret,
+      {}
+    );
+
+    res.status(200).json({
+      message: "유저 정보 수정 성공",
+      token: token,
+      isPwChanged: isPwChanged,
+      isUpdated: isUpdated,
+      emailID: user.emailID,
+    });
   } catch (error) {
     console.error("유저정보 수정중 에러발생:", error);
-    res.status(500).send("서버에러");
+    res.status(500).json({ message: "서버에러" });
   }
 });
 
@@ -290,7 +328,20 @@ app.post("/logout", (req, res) => {
 const Satisfied = require("./modules/Satisfied");
 
 app.post("/satisfied", async (req, res) => {
-  const { emailID, writerID, starRating, kind, onTime, highQuality, unkind, notOnTime, lowQuality, etc, etcDescription, postID } = req.body;
+  const {
+    emailID,
+    writerID,
+    starRating,
+    kind,
+    onTime,
+    highQuality,
+    unkind,
+    notOnTime,
+    lowQuality,
+    etc,
+    etcDescription,
+    postID,
+  } = req.body;
 
   const newSatisfaction = new Satisfied({
     emailID,
