@@ -4,8 +4,6 @@ const app = express();
 const port = 8000;
 
 const cors = require("cors");
-
-//cors issue
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -13,6 +11,7 @@ app.use(
     exposedHeaders: ["X-Total-Count"],
   })
 );
+
 app.use(express.json());
 
 const mongoose = require("mongoose");
@@ -37,14 +36,20 @@ app.use(cookieParser());
 
 //멀터 및 이미지 업로드
 const fs = require("fs");
-const multer = require("multer"); // multer 모듈 임포트
-const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multer 설정
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
 const path = require("path");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-//회원가입 폰인증
-const twilio = require("./twilio");
-app.use("/sendsms", twilio);
+// email, sms
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+
+const twilio = require("twilio");
+const accountSid = process.env.SID;
+const authToken = process.env.TOKEN;
+const client = twilio(accountSid, authToken);
+const { parsePhoneNumberFromString } = require("libphonenumber-js");
 
 app.get("/", (req, res) => {
   res.send("get request~!~!~");
@@ -77,6 +82,40 @@ app.post("/signup", async (req, res) => {
     res.json(userDoc);
   } catch (e) {
     res.status(400).json({ message: "failed", error: e.message });
+  }
+});
+
+//회원가입시 폰인증
+app.post("/sendsms", async (req, res) => {
+  const { phone: phoneNumber } = req.body;
+  console.log("폰번호 입력됨:", phoneNumber);
+
+  // 번호를 국제번호 형식으로 변경 및 검증
+  const phoneParsed = parsePhoneNumberFromString(phoneNumber, "KR");
+  if (!phoneParsed || !phoneParsed.isValid()) {
+    console.log("Invalid phone format");
+    return res
+      .status(400)
+      .json({ success: false, error: "부정확한 연락처 형식" });
+  }
+
+  const formattedPhone = phoneParsed.number;
+  console.log("Formatted phone:", formattedPhone);
+
+  let authNum = "";
+  for (let i = 0; i < 4; i++) authNum += Math.floor(Math.random() * 10);
+
+  try {
+    const message = await client.messages.create({
+      from: process.env.TWILIO_FROM,
+      body: `[GURU] 인증번호는 [${authNum}] 입니다. 정확히 입력해주세요.`,
+      to: formattedPhone,
+    });
+    console.log("문자 전송함:", message.sid);
+    res.json({ success: true, sid: message.sid, auth: authNum });
+  } catch (error) {
+    console.error("Twilio 에러:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -197,8 +236,9 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     const ext = part[part.length - 1];
     newPath = path + "." + ext;
     fs.renameSync(path, newPath);
-    console.log("file:", path, newPath);
+    // console.log("file:", path, newPath);
   }
+
   try {
     const user = await User.findById(_id);
     if (!user) {
@@ -224,10 +264,10 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
 app.delete("/mypage/acctdelete", async (req, res) => {
   try {
     const token = req.headers.authorization.split(" ")[1];
-    // const pickToken = jwt.verify(token, jwtSecret);
+    const pickToken = jwt.verify(token, jwtSecret);
 
     const userEmail = pickToken.emailID;
-    console.log("pickToken", pickToken);
+    // console.log("pickToken", pickToken);
     await User.findOneAndDelete({ emailID: userEmail });
 
     res.status(200).send({ message: "회원탈퇴 완료" });
@@ -311,8 +351,6 @@ app.post("/findacct/id", async (req, res) => {
 });
 
 //비번찾기
-const nodemailer = require("nodemailer");
-const crypto = require("crypto");
 const transporter = nodemailer.createTransport({
   service: "naver",
   host: "smtp.naver.com",
@@ -370,7 +408,6 @@ app.post("/logout", (req, res) => {
 
 //만족도 조사
 app.post("/satisfied", async (req, res) => {
-
   const {
     Post_id,
     emailID,
@@ -420,7 +457,7 @@ app.post("/satisfied", async (req, res) => {
       } else {
         jobPost.status = 3;
       }
-    }    
+    }
     // 만약 jobPost 상태가 3 또는 4라면 5로 업데이트
     if (jobPost.status === 3 || jobPost.status === 4) {
       jobPost.status = 5;
@@ -434,7 +471,6 @@ app.post("/satisfied", async (req, res) => {
       .json({ error: "Unable to save data or update job post status" });
   }
 });
-
 
 app.listen(port, () => {
   console.log("서버 실행되는중!");

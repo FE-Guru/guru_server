@@ -4,10 +4,19 @@ const JobPost = require("./modules/JobPost");
 const User = require("./modules/User");
 
 const jwt = require("jsonwebtoken");
-const jwtSecret = "hjetydghnmjklghrtwijoerjkufgshjbkl";
+const jwtSecret = process.env.SECRET_KEY;
 
 router.post("/jobWrit", async (req, res) => {
-  const { title, endDate, workStartDate, workEndDate, location, pay, desc, category } = req.body;
+  const {
+    title,
+    endDate,
+    workStartDate,
+    workEndDate,
+    location,
+    pay,
+    desc,
+    category,
+  } = req.body;
   const token = req.cookies.token;
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
@@ -55,7 +64,16 @@ router.get("/jobEdit/:id", async (req, res) => {
 
 router.put("/jobEdit/:id", async (req, res) => {
   const { id } = req.params;
-  const { title, endDate, workStartDate, workEndDate, location, pay, desc, category } = req.body;
+  const {
+    title,
+    endDate,
+    workStartDate,
+    workEndDate,
+    location,
+    pay,
+    desc,
+    category,
+  } = req.body;
   const token = req.cookies.token;
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
@@ -113,7 +131,10 @@ router.get("/jobOffer", async (req, res) => {
     }
     try {
       const totalJobs = await JobPost.countDocuments({ emailID: info.emailID });
-      const jobList = await JobPost.find({ emailID: info.emailID }).sort({ createdAt: -1 }).skip(skip).limit(pageSize);
+      const jobList = await JobPost.find({ emailID: info.emailID })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize);
       res.append("X-Total-Count", totalJobs.toString());
       res.json(jobList);
     } catch (e) {
@@ -180,7 +201,9 @@ router.get("/mainOffline", async (req, res) => {
       const radlat2 = (Math.PI * lat2) / 180;
       const theta = lon1 - lon2;
       const radtheta = (Math.PI * theta) / 180;
-      let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+      let dist =
+        Math.sin(radlat1) * Math.sin(radlat2) +
+        Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
       if (dist > 1) {
         dist = 1;
       }
@@ -210,7 +233,12 @@ router.get("/mainOffline", async (req, res) => {
       jobList = jobList
         .map((job) => ({
           ...job.toObject(),
-          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+          distance: getDistance(
+            userLat,
+            userLon,
+            job.location.mapY,
+            job.location.mapX
+          ),
         }))
         .sort((a, b) => a.distance - b.distance);
     }
@@ -283,7 +311,9 @@ router.get("/findoffLine", async (req, res) => {
       const radlat2 = (Math.PI * lat2) / 180;
       const theta = lon1 - lon2;
       const radtheta = (Math.PI * theta) / 180;
-      let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+      let dist =
+        Math.sin(radlat1) * Math.sin(radlat2) +
+        Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
       if (dist > 1) {
         dist = 1;
       }
@@ -323,7 +353,12 @@ router.get("/findoffLine", async (req, res) => {
       jobList = jobList
         .map((job) => ({
           ...job.toObject(),
-          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+          distance: getDistance(
+            userLat,
+            userLon,
+            job.location.mapY,
+            job.location.mapX
+          ),
         }))
         .sort((a, b) => a.distance - b.distance);
     }
@@ -344,7 +379,9 @@ router.get("/alloffLine", async (req, res) => {
       const radlat2 = (Math.PI * lat2) / 180;
       const theta = lon1 - lon2;
       const radtheta = (Math.PI * theta) / 180;
-      let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+      let dist =
+        Math.sin(radlat1) * Math.sin(radlat2) +
+        Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
       if (dist > 1) {
         dist = 1;
       }
@@ -365,12 +402,22 @@ router.get("/alloffLine", async (req, res) => {
       return today;
     };
     const endTime = getTodayDateWithTime(14, 59, 0, 0);
-    let jobList = await JobPost.find({ "category.jobType": "offLine", title: { $regex: titleText, $options: "i" }, status: 1, endDate: { $gte: endTime } });
+    let jobList = await JobPost.find({
+      "category.jobType": "offLine",
+      title: { $regex: titleText, $options: "i" },
+      status: 1,
+      endDate: { $gte: endTime },
+    });
     if (!isNaN(userLat) && !isNaN(userLon)) {
       jobList = jobList
         .map((job) => ({
           ...job.toObject(),
-          distance: getDistance(userLat, userLon, job.location.mapY, job.location.mapX),
+          distance: getDistance(
+            userLat,
+            userLon,
+            job.location.mapY,
+            job.location.mapX
+          ),
         }))
         .sort((a, b) => a.distance - b.distance);
     }
@@ -416,7 +463,9 @@ router.put("/hiring", async (req, res) => {
     try {
       const jobPost = await JobPost.findById(jobPostID);
       if (!jobPost) {
-        return res.status(404).json({ message: "해당 공고를 찾을 수 없습니다" });
+        return res
+          .status(404)
+          .json({ message: "해당 공고를 찾을 수 없습니다" });
       }
       if (info.emailID !== jobPost.emailID) {
         return res.status(403).json({ message: "권한이 없습니다" });
@@ -428,9 +477,13 @@ router.put("/hiring", async (req, res) => {
         return res.status(404).json({ message: "이미 채용된 공고입니다." });
       }
 
-      const applicantIndex = jobPost.applicants.findIndex((applicant) => applicant.emailID === AppliUser);
+      const applicantIndex = jobPost.applicants.findIndex(
+        (applicant) => applicant.emailID === AppliUser
+      );
       if (applicantIndex === -1) {
-        return res.status(404).json({ message: "해당 지원자를 찾을 수 없습니다" });
+        return res
+          .status(404)
+          .json({ message: "해당 지원자를 찾을 수 없습니다" });
       }
 
       jobPost.applicants[applicantIndex].matched = true;
@@ -438,7 +491,9 @@ router.put("/hiring", async (req, res) => {
       jobPost.status = 2;
       await jobPost.save();
 
-      res.status(200).json({ message: "지원자 매칭 및 공고 상태가 업데이트되었습니다" });
+      res
+        .status(200)
+        .json({ message: "지원자 매칭 및 공고 상태가 업데이트되었습니다" });
     } catch (e) {
       console.error("Server error: ", e);
       res.status(500).json({ message: "서버 에러가 발생했습니다" });
@@ -472,10 +527,14 @@ router.put("/application/:id", (req, res) => {
       }
       const jobPost = await JobPost.findById(id);
       if (!jobPost) {
-        return res.status(404).json({ message: "해당 공고를 찾을 수 없습니다" });
+        return res
+          .status(404)
+          .json({ message: "해당 공고를 찾을 수 없습니다" });
       }
 
-      const existingApplicant = jobPost.applicants.find((applicant) => applicant.emailID === user.emailID);
+      const existingApplicant = jobPost.applicants.find(
+        (applicant) => applicant.emailID === user.emailID
+      );
       if (existingApplicant) {
         if (existingApplicant.status === -1) {
           // 재지원 로직: 상태를 1로 업데이트
@@ -519,10 +578,14 @@ router.put("/appCancell/:id", (req, res) => {
     try {
       const jobPost = await JobPost.findById(id);
       if (!jobPost) {
-        return res.status(404).json({ message: "해당 공고를 찾을 수 없습니다" });
+        return res
+          .status(404)
+          .json({ message: "해당 공고를 찾을 수 없습니다" });
       }
 
-      const applicant = jobPost.applicants.find((applicant) => applicant.emailID === info.emailID);
+      const applicant = jobPost.applicants.find(
+        (applicant) => applicant.emailID === info.emailID
+      );
       if (applicant) {
         if (applicant.status === 1) {
           //매칭 전 취소
