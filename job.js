@@ -247,7 +247,6 @@ router.get("/findonLine", async (req, res) => {
       .skip(skip)
       .limit(pageSize);
     res.append("X-Total-Count", totalJobs.toString());
-    console.log(jobList.length);
     res.json(jobList);
   } catch (e) {
     res.json({ message: "server(500) error" });
