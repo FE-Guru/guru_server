@@ -4,6 +4,9 @@ const { Schema, model } = mongoose;
 const UserSchema = new Schema({
   emailID: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  resetPwToken: String,
+  resetPwExpires: Date,
+  newPw: String,
   userName: { type: String, required: true },
   nickName: String,
   phone: { type: String, required: true },
@@ -18,5 +21,5 @@ const UserSchema = new Schema({
   certified: { type: Boolean, default: false },
 });
 
-const UserModel = model("User", UserSchema);
-module.exports = UserModel;
+const User = model("User", UserSchema);
+module.exports = User;

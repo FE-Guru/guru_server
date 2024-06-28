@@ -16,10 +16,7 @@ app.use(
 app.use(express.json());
 
 const mongoose = require("mongoose");
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(process.env.MONGO_URI);
 
 // models
 const User = require("./modules/User");
@@ -45,10 +42,6 @@ const upload = multer({ dest: "uploads/" }); // 파일 업로드를 위한 multe
 const path = require("path");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-//mail
-const mailRouter = require("./modules/Email");
-app.use("/gurumail", mailRouter);
-
 //회원가입 폰인증
 const twilio = require("./twilio");
 app.use("/sendsms", twilio);
@@ -69,7 +62,9 @@ app.post("/signup", async (req, res) => {
     // 이메일아이디 중복 체크
     const existUser = await User.findOne({ emailID });
     if (existUser) {
-      return res.status(409).json({ message: "이미 존재하는 이메일아이디 입니다." });
+      return res
+        .status(409)
+        .json({ message: "이미 존재하는 이메일아이디 입니다." });
     }
     const userDoc = await User.create({
       emailID,
@@ -115,16 +110,21 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
-      if (err) throw err;
-      res.cookie("token", token).json({
-        token,
-        id: userDoc._id,
-        emailID,
-        userName,
-        nickName,
-      });
-    });
+    jwt.sign(
+      { emailID, id: userDoc._id, userName, nickName, phone, account },
+      jwtSecret,
+      {},
+      (err, token) => {
+        if (err) throw err;
+        res.cookie("token", token).json({
+          token,
+          id: userDoc._id,
+          emailID,
+          userName,
+          nickName,
+        });
+      }
+    );
   } else {
     res.json({ message: "failed" });
   }
@@ -132,9 +132,12 @@ app.post("/login", async (req, res) => {
 
 app.get("/profile", (req, res) => {
   const token = req.cookies.token;
+
   if (!token) {
     return res.status(401).json({ message: "토큰이 없습니다" });
   }
+  // console.log("token : ", token);
+
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
       console.error("Token error: ", err);
@@ -254,7 +257,11 @@ app.post("/mypage/personaledit", async (req, res) => {
         isUpdated = true;
       }
     }
-    if (user.nickName !== nickName || user.phone !== phone || user.account !== account) {
+    if (
+      user.nickName !== nickName ||
+      user.phone !== phone ||
+      user.account !== account
+    ) {
       user.nickName = nickName;
       user.phone = phone;
       user.account = account;
@@ -304,18 +311,56 @@ app.post("/findacct/id", async (req, res) => {
 });
 
 //비번찾기
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+const transporter = nodemailer.createTransport({
+  service: "naver",
+  host: "smtp.naver.com",
+  port: 465,
+  auth: {
+    user: process.env.NAVER_EMAIL,
+    pass: process.env.NAVER_PASSWORD,
+  },
+});
+
 app.post("/findacct/pw", async (req, res) => {
   const { emailID } = req.body;
 
   try {
     const user = await User.findOne({ emailID });
-    if (user) {
-      res.status(200).json({ password: user.password });
-    } else {
-      res.status(404).json({ message: "해당 유저가 없습니다" });
+    if (!user) {
+      return res.status(404).json({ message: "없는 유저입니다." });
     }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = bcrypt.hashSync(resetToken, bcrypt.genSaltSync(10));
+    user.resetPwToken = hashedToken;
+    user.resetPwExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    const resetLink = `http://localhost:3000/resetpassword?token=${resetToken}&email=${emailID}`;
+
+    const mailOptions = {
+      from: process.env.NAVER_EMAIL,
+      to: emailID,
+      subject: "[GURU] 비밀번호 재전송 링크입니다.",
+      html: `<div style="color: #121212;">
+        <p>안녕하세요. GURU 입니다.</p>
+            <p>회원님의 비밀번호 재설정을 위해 아래 버튼을 눌러주세요.</p>
+            <a href="${resetLink}" style="display: inline-block; font-size: 13px;">
+        비밀번호 재설정</a>
+            <p>링크는 1시간 뒤에 만료됩니다.</p>
+            <p>만약 비밀번호 재설정을 요청한 적이 없다면 이 이메일을 무시해주세요.</p>
+            <p>감사합니다.</p>
+            <p>GURU</p>
+      </div>
+    `,
+    };
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "이메일 전송 성공" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    console.error("이메일 전송 실패:", error);
+    res.status(500).json({ message: "이메일 전송 실패", error });
   }
 });
 
@@ -325,7 +370,20 @@ app.post("/logout", (req, res) => {
 
 //만족도 조사
 app.post("/satisfied", async (req, res) => {
-  const { Post_id, emailID, writerID, starRating, kind, onTime, highQuality, unkind, notOnTime, lowQuality, etc, etcDescription } = req.body;
+  const {
+    Post_id,
+    emailID,
+    writerID,
+    starRating,
+    kind,
+    onTime,
+    highQuality,
+    unkind,
+    notOnTime,
+    lowQuality,
+    etc,
+    etcDescription,
+  } = req.body;
 
   const newSatisfaction = new Satisfied({
     Post_id,
@@ -370,7 +428,9 @@ app.post("/satisfied", async (req, res) => {
     await jobPost.save();
     res.json(savedSatisfaction);
   } catch (error) {
-    res.status(400).json({ error: "Unable to save data or update job post status" });
+    res
+      .status(400)
+      .json({ error: "Unable to save data or update job post status" });
   }
 });
 
