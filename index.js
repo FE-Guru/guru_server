@@ -370,6 +370,7 @@ app.post("/logout", (req, res) => {
 
 //만족도 조사
 app.post("/satisfied", async (req, res) => {
+
   const {
     Post_id,
     emailID,
@@ -412,17 +413,17 @@ app.post("/satisfied", async (req, res) => {
       return res.status(404).json({ error: "Job post not found" });
     }
 
-    // 작성자가 만족도 조사를 하는 경우
-    if (writerID === jobPost.emailID) {
-      jobPost.status = 3;
-    } else {
-      // 구직자(지원)가 만족도 조사를 하는 경우
-      jobPost.status = 3;
-      jobPost.applicant.forEach((applicant) => {
-        if (applicant.email === emailID) {
-          applicant.status = 3;
-        }
-      });
+    //상태 변경 조건 [2 - 예약중 // 3,4 - 완료대기 // 5 - 완료]
+    if (jobPost.status === 2) {
+      if (writerID === jobPost.emailID) {
+        jobPost.status = 4;
+      } else {
+        jobPost.status = 3;
+      }
+    }    
+    // 만약 jobPost 상태가 3 또는 4라면 5로 업데이트
+    if (jobPost.status === 3 || jobPost.status === 4) {
+      jobPost.status = 5;
     }
 
     await jobPost.save();
@@ -433,6 +434,7 @@ app.post("/satisfied", async (req, res) => {
       .json({ error: "Unable to save data or update job post status" });
   }
 });
+
 
 app.listen(port, () => {
   console.log("서버 실행되는중!");
