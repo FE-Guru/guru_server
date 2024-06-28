@@ -13,6 +13,8 @@ const satisfiedSchema = new mongoose.Schema({
   lowQuality: { type: Number, required: true },
   etc: { type: Number, required: true },
   etcDescription: { type: String, default: '' }
-});
+},
+{ timestamps: true }
+);
 
 module.exports = mongoose.model('Satisfied', satisfiedSchema);
