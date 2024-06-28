@@ -69,9 +69,7 @@ app.post("/signup", async (req, res) => {
     // 이메일아이디 중복 체크
     const existUser = await User.findOne({ emailID });
     if (existUser) {
-      return res
-        .status(409)
-        .json({ message: "이미 존재하는 이메일아이디 입니다." });
+      return res.status(409).json({ message: "이미 존재하는 이메일아이디 입니다." });
     }
     const userDoc = await User.create({
       emailID,
@@ -117,21 +115,16 @@ app.post("/login", async (req, res) => {
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName, phone, account },
-      jwtSecret,
-      {},
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id, userName, nickName, phone, account }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName,
+        nickName,
+      });
+    });
   } else {
     res.json({ message: "failed" });
   }
@@ -139,12 +132,9 @@ app.post("/login", async (req, res) => {
 
 app.get("/profile", (req, res) => {
   const token = req.cookies.token;
-
   if (!token) {
     return res.status(401).json({ message: "토큰이 없습니다" });
   }
-  // console.log("token : ", token);
-
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
       console.error("Token error: ", err);
@@ -163,6 +153,7 @@ app.get("/profile", (req, res) => {
         phone: user.phone,
         account: user.account,
         certified: user.certified,
+        image: user.image,
       };
       res.json(userInfo);
     } catch (error) {
@@ -263,11 +254,7 @@ app.post("/mypage/personaledit", async (req, res) => {
         isUpdated = true;
       }
     }
-    if (
-      user.nickName !== nickName ||
-      user.phone !== phone ||
-      user.account !== account
-    ) {
+    if (user.nickName !== nickName || user.phone !== phone || user.account !== account) {
       user.nickName = nickName;
       user.phone = phone;
       user.account = account;
@@ -338,20 +325,7 @@ app.post("/logout", (req, res) => {
 
 //만족도 조사
 app.post("/satisfied", async (req, res) => {
-  const {
-    Post_id,
-    emailID,
-    writerID,
-    starRating,
-    kind,
-    onTime,
-    highQuality,
-    unkind,
-    notOnTime,
-    lowQuality,
-    etc,
-    etcDescription,
-  } = req.body;
+  const { Post_id, emailID, writerID, starRating, kind, onTime, highQuality, unkind, notOnTime, lowQuality, etc, etcDescription } = req.body;
 
   const newSatisfaction = new Satisfied({
     Post_id,
@@ -396,9 +370,7 @@ app.post("/satisfied", async (req, res) => {
     await jobPost.save();
     res.json(savedSatisfaction);
   } catch (error) {
-    res
-      .status(400)
-      .json({ error: "Unable to save data or update job post status" });
+    res.status(400).json({ error: "Unable to save data or update job post status" });
   }
 });
 
