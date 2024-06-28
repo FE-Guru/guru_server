@@ -93,14 +93,14 @@ app.post("/sendsms", async (req, res) => {
   // 번호를 국제번호 형식으로 변경 및 검증
   const phoneParsed = parsePhoneNumberFromString(phoneNumber, "KR");
   if (!phoneParsed || !phoneParsed.isValid()) {
-    console.log("Invalid phone format");
+    console.log("부정확한 연락처 형식");
     return res
       .status(400)
       .json({ success: false, error: "부정확한 연락처 형식" });
   }
 
   const formattedPhone = phoneParsed.number;
-  console.log("Formatted phone:", formattedPhone);
+  console.log("바뀐 번호", formattedPhone);
 
   let authNum = "";
   for (let i = 0; i < 4; i++) authNum += Math.floor(Math.random() * 10);
@@ -350,7 +350,7 @@ app.post("/findacct/id", async (req, res) => {
   }
 });
 
-//비번찾기
+//비번찾기 메일전송
 const transporter = nodemailer.createTransport({
   service: "naver",
   host: "smtp.naver.com",
@@ -360,7 +360,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.NAVER_PASSWORD,
   },
 });
-
 app.post("/findacct/pw", async (req, res) => {
   const { emailID } = req.body;
 
@@ -387,7 +386,7 @@ app.post("/findacct/pw", async (req, res) => {
             <p>회원님의 비밀번호 재설정을 위해 아래 버튼을 눌러주세요.</p>
             <a href="${resetLink}" style="display: inline-block; font-size: 13px;">
         비밀번호 재설정</a>
-            <p>링크는 1시간 뒤에 만료됩니다.</p>
+            <p>링크는 비밀번호 재설정을 하거나 1시간이 지나면 만료됩니다.</p>
             <p>만약 비밀번호 재설정을 요청한 적이 없다면 이 이메일을 무시해주세요.</p>
             <p>감사합니다.</p>
             <p>GURU</p>
@@ -399,6 +398,37 @@ app.post("/findacct/pw", async (req, res) => {
   } catch (error) {
     console.error("이메일 전송 실패:", error);
     res.status(500).json({ message: "이메일 전송 실패", error });
+  }
+});
+
+//비밀번호 재설정
+app.post("/job/resetpassword", async (req, res) => {
+  const { password, token, emailID } = req.body;
+
+  try {
+    const user = await User.findOne({ emailID });
+    if (!user) {
+      return res.status(400).json({ message: "유효하지 않은 사용자입니다." });
+    }
+
+    const isTokenValid = bcrypt.compareSync(token, user.resetPwToken);
+    const isTokenExpired = user.resetPwExpires < Date.now();
+
+    if (!isTokenValid || isTokenExpired) {
+      return res
+        .status(400)
+        .json({ message: "토큰이 유효하지 않거나 만료되었습니다." });
+    }
+
+    user.password = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
+    user.resetPwToken = undefined;
+    user.resetPwExpires = undefined;
+    await user.save();
+    console.log("비밀번호 재설정 성공");
+    res.status(200).json({ message: "비밀번호 재설정 성공" });
+  } catch (error) {
+    console.error("비밀번호 재설정 실패:", error);
+    res.status(500).json({ message: "비밀번호 재설정 실패", error });
   }
 });
 
