@@ -214,9 +214,7 @@ router.get("/mainOffline", async (req, res) => {
         }))
         .sort((a, b) => a.distance - b.distance);
     }
-    console.log("joblist", jobList.length);
     const pagingJobList = jobList.slice(0, 3);
-    console.log("paginglist", pagingJobList.length);
     res.json(pagingJobList);
   } catch (e) {
     res.status(500).json({ message: "server(500) error" });
@@ -234,7 +232,12 @@ router.get("/findonLine", async (req, res) => {
       return today;
     };
     const endTime = getTodayDateWithTime(14, 59, 0, 0);
-    const totalJobs = await JobPost.countDocuments({ "category.jobType": "onLine" });
+    const totalJobs = await JobPost.countDocuments({
+      "category.jobType": "onLine",
+      status: 1,
+      endDate: { $gte: endTime },
+    });
+
     const jobList = await JobPost.find({
       "category.jobType": "onLine",
       status: 1,
@@ -244,6 +247,7 @@ router.get("/findonLine", async (req, res) => {
       .skip(skip)
       .limit(pageSize);
     res.append("X-Total-Count", totalJobs.toString());
+    console.log(jobList.length);
     res.json(jobList);
   } catch (e) {
     res.json({ message: "server(500) error" });
@@ -305,8 +309,11 @@ router.get("/findoffLine", async (req, res) => {
       return today;
     };
     const endTime = getTodayDateWithTime(14, 59, 0, 0);
-    const totalJobs = await JobPost.countDocuments({ "category.jobType": "offLine" });
-
+    const totalJobs = await JobPost.countDocuments({
+      "category.jobType": "offLine",
+      status: 1,
+      endDate: { $gte: endTime },
+    });
     let jobList = await JobPost.find({
       "category.jobType": "offLine",
       status: 1,
