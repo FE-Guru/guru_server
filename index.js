@@ -162,13 +162,31 @@ app.post("/signupok", async (req, res) => {
   }
 });
 
+//토큰 유효성 검증
+app.post("/verify-token", (req, res) => {
+  const headerToken = req.headers.authorization;
+
+  if (!headerToken) {
+    return res.status(401).json({ message: "토큰이 없습니다" });
+  }
+
+  const token = headerToken.split(" ")[1];
+
+  jwt.verify(token, jwtSecret, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
+    }
+    res.status(200).json({ message: "토큰이 유효합니다" });
+  });
+});
+
 //로그인
 app.post("/login", async (req, res) => {
   const { emailID, password, userName, nickName, phone, account } = req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
-    res.json({ message: "no user" });
+    res.json({ message: "사용자가 없습니다" });
     return;
   }
 
@@ -190,21 +208,21 @@ app.post("/login", async (req, res) => {
       }
     );
   } else {
-    res.json({ message: "failed" });
+    res.status(401).json({ message: "비밀번호가 일치하지 않습니다" });
   }
 });
 
 app.get("/profile", (req, res) => {
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
 
-  if (!token) {
+  if (!headerToken) {
     return res.status(401).json({ message: "토큰이 없습니다" });
   }
-  // console.log("token : ", token);
+  // console.log("token : ", headerToken);
+  const token = headerToken.split(" ")[1];
 
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
-      console.error("Token error: ", err);
       return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
     }
 
@@ -457,7 +475,7 @@ app.post("/job/resetpassword", async (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.cookie("token", "").json();
+  res.json({ message: "로그아웃되었습니다." });
 });
 
 //만족도 조사
