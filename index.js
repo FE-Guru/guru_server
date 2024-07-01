@@ -182,7 +182,8 @@ app.post("/verify-token", (req, res) => {
 
 //로그인
 app.post("/login", async (req, res) => {
-  const { emailID, password, userName, nickName, phone, account } = req.body;
+  const { emailID, password, userName, nickName, phone, auth, account } =
+    req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
