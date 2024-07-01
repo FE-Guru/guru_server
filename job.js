@@ -270,8 +270,13 @@ router.get("/mainOffline", async (req, res) => {
 
 router.get("/findonLine", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
+  const talent = req.query.talent || "all";
+  const field = req.query.field || "all";
+  const startCateTime = req.query.startCateTime;
+  const endCateTime = req.query.endCateTime;
   const pageSize = 5;
   const skip = (page - 1) * pageSize;
+  console.log(talent, field, startCateTime, endCateTime);
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
       const today = new Date();
@@ -279,21 +284,25 @@ router.get("/findonLine", async (req, res) => {
       return today;
     };
     const endTime = getTodayDateWithTime(14, 59, 0, 0);
-    const totalJobs = await JobPost.countDocuments({
+    let query = {
       "category.jobType": "onLine",
       status: 1,
       endDate: { $gte: endTime },
-    });
-
-    const jobList = await JobPost.find({
-      "category.jobType": "onLine",
-      status: 1,
-      endDate: { $gte: endTime },
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(pageSize);
+    };
+    if (talent !== "all") {
+      query["category.talent"] = talent;
+    }
+    if (field !== "all") {
+      query["category.field"] = field;
+    }
+    if (!isNaN(startCateTime) && !isNaN(endCateTime)) {
+      query["category.time"] = { $gte: startCateTime, $lte: endCateTime };
+    }
+    const totalJobs = await JobPost.countDocuments(query);
+    const jobList = await JobPost.find(query).sort({ createdAt: -1 }).skip(skip).limit(pageSize);
     res.append("X-Total-Count", totalJobs.toString());
+    console.log("job", jobList.length);
+    console.log("total", totalJobs);
     res.json(jobList);
   } catch (e) {
     res.json({ message: "server(500) error" });
@@ -341,12 +350,16 @@ router.get("/findoffLine", async (req, res) => {
       return dist;
     }
   };
-
   const page = parseInt(req.query.page) || 1;
+  const talent = req.query.talent || "all";
+  const field = req.query.field || "all";
+  const startCateTime = req.query.startCateTime;
+  const endCateTime = req.query.endCateTime;
   const pageSize = 5;
   const skip = (page - 1) * pageSize;
   const userLat = parseFloat(req.query.lat);
   const userLon = parseFloat(req.query.lon);
+  console.log(talent, field, startCateTime, endCateTime);
 
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
@@ -355,17 +368,23 @@ router.get("/findoffLine", async (req, res) => {
       return today;
     };
     const endTime = getTodayDateWithTime(14, 59, 0, 0);
-    const totalJobs = await JobPost.countDocuments({
+    let query = {
       "category.jobType": "offLine",
       status: 1,
       endDate: { $gte: endTime },
-    });
-    let jobList = await JobPost.find({
-      "category.jobType": "offLine",
-      status: 1,
-      endDate: { $gte: endTime },
-    });
+    };
+    if (talent !== "all") {
+      query["category.talent"] = talent;
+    }
+    if (field !== "all") {
+      query["category.field"] = field;
+    }
+    if (!isNaN(startCateTime) && !isNaN(endCateTime)) {
+      query["category.time"] = { $gte: startCateTime, $lte: endCateTime };
+    }
 
+    const totalJobs = await JobPost.countDocuments(query);
+    let jobList = await JobPost.find(query);
     if (!isNaN(userLat) && !isNaN(userLon)) {
       jobList = jobList
         .map((job) => ({
@@ -376,6 +395,7 @@ router.get("/findoffLine", async (req, res) => {
     }
     const pagingJobList = jobList.slice(skip, skip + pageSize);
     res.append("X-Total-Count", totalJobs.toString());
+    console.log("total", totalJobs, "pagingJobList", pagingJobList.length);
     res.json(pagingJobList);
   } catch (e) {
     res.status(500).json({ message: "server(500) error" });
@@ -405,6 +425,7 @@ router.get("/alloffLine", async (req, res) => {
   const titleText = req.query.titleText;
   const userLat = parseFloat(req.query.lat);
   const userLon = parseFloat(req.query.lon);
+  console.log(titleText);
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
       const today = new Date();
