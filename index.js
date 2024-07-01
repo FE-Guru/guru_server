@@ -182,32 +182,25 @@ app.post("/verify-token", (req, res) => {
 
 //로그인
 app.post("/login", async (req, res) => {
-  const { emailID, password, userName, nickName, phone, auth, account } =
-    req.body;
+  const { emailID, password } = req.body;
   const userDoc = await User.findOne({ emailID });
 
   if (!userDoc) {
-    res.json({ message: "사용자가 없습니다" });
-    return;
+    return res.status(404).json({ message: "사용자가 없습니다" });
   }
 
   const pass = bcrypt.compareSync(password, userDoc.password);
   if (pass) {
-    jwt.sign(
-      { emailID, id: userDoc._id, userName, nickName, phone, account },
-      jwtSecret,
-      {},
-      (err, token) => {
-        if (err) throw err;
-        res.cookie("token", token).json({
-          token,
-          id: userDoc._id,
-          emailID,
-          userName,
-          nickName,
-        });
-      }
-    );
+    jwt.sign({ emailID, id: userDoc._id }, jwtSecret, {}, (err, token) => {
+      if (err) throw err;
+      res.cookie("token", token).json({
+        token,
+        id: userDoc._id,
+        emailID,
+        userName: userDoc.userName,
+        nickName: userDoc.nickName,
+      });
+    });
   } else {
     res.status(401).json({ message: "비밀번호가 일치하지 않습니다" });
   }
