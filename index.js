@@ -62,27 +62,47 @@ app.use("/job", jobRouter);
 
 //회원가입
 app.post("/signup", async (req, res) => {
-  const { emailID, password, userName, nickName, phone, auth, code, account } =
+  const { emailID, password, userName, nickName, phone, auth, account } =
     req.body;
+
   try {
-    // 이메일아이디 중복 체크
+    // 이메일 아이디 중복 체크
     const existUser = await User.findOne({ emailID });
     if (existUser) {
       return res
         .status(409)
-        .json({ message: "이미 존재하는 이메일아이디 입니다." });
+        .json({ message: "이미 존재하는 이메일 아이디 입니다." });
     }
-    const userDoc = await User.create({
-      emailID,
-      password: bcrypt.hashSync(password, salt),
-      userName,
-      nickName,
-      phone,
-      auth,
-      code,
-      account,
-    });
-    res.json(userDoc);
+
+    // 전화번호로 기존 사용자 찾기
+    const user = await User.findOne({ phone });
+    if (user) {
+      if (user.auth === auth) {
+        // 사용자 정보 업데이트
+        user.emailID = emailID;
+        user.password = bcrypt.hashSync(password, salt);
+        user.userName = userName;
+        user.nickName = nickName;
+        user.account = account;
+        await user.save();
+        return res.json(user);
+      } else {
+        return res.status(400).json({ message: "인증 실패 또는 사용자 없음" });
+      }
+    } else {
+      // 새로운 사용자 생성
+      const newUser = new User({
+        emailID,
+        password: bcrypt.hashSync(password, salt),
+        userName,
+        nickName,
+        phone,
+        auth,
+        account,
+      });
+      await newUser.save();
+      return res.json(newUser);
+    }
   } catch (e) {
     res.status(400).json({ message: "failed", error: e.message });
   }
@@ -92,20 +112,15 @@ app.post("/signup", async (req, res) => {
 const verifiedCodes = {};
 app.post("/sendsms", async (req, res) => {
   const { phone: phoneNumber } = req.body;
-  // console.log("폰번호 입력됨:", phoneNumber);
 
-  // 번호를 국제번호 형식으로 변경 및 검증
   const phoneParsed = parsePhoneNumberFromString(phoneNumber, "KR");
   if (!phoneParsed || !phoneParsed.isValid()) {
-    // console.log("부정확한 연락처 형식");
     return res
       .status(400)
       .json({ success: false, error: "부정확한 연락처 형식" });
   }
   const formattedPhone = phoneParsed.number;
-  // console.log("바뀐 번호", formattedPhone);
 
-  // 인증번호 4자리 생성
   let authNum = "";
   for (let i = 0; i < 4; i++) authNum += Math.floor(Math.random() * 10);
 
@@ -115,17 +130,11 @@ app.post("/sendsms", async (req, res) => {
       body: `[GURU] 인증번호는 [${authNum}] 입니다. 정확히 입력해주세요.`,
       to: formattedPhone,
     });
-    // console.log("문자 전송함:", message.sid);
 
-    // 메모리 객체에 인증번호 저장
     verifiedCodes[formattedPhone] = authNum;
-    // console.log("저장된 인증번호:", verifiedCodes);
 
-    await User.findOneAndUpdate(
-      { phone: phoneNumber },
-      { auth: authNum },
-      { upsert: true, new: true }
-    );
+    // console.log("문자 전송함:", message.sid);
+    // console.log("저장된 인증번호:", verifiedCodes);
 
     res.json({ success: true, sid: message.sid, auth: authNum });
   } catch (error) {
@@ -134,39 +143,39 @@ app.post("/sendsms", async (req, res) => {
   }
 });
 
-//인증번호랑 입력한거랑 비교
 async function verifyCode(phone, code) {
-  console.log("검증 시도 - 저장된 인증번호:", verifiedCodes);
+  // console.log("검증 시도 - 저장된 인증번호:", verifiedCodes);
   const savedCode = verifiedCodes[phone];
+  // console.log("입력된 전화번호:", phone);
+  // console.log("저장된 인증번호:", savedCode);
+  // console.log("입력된 인증번호:", code);
   if (savedCode && savedCode === code) {
     return true;
   }
   return false;
 }
 
+//인증번호랑 입력한거랑 비교
 app.post("/verifycode", async (req, res) => {
   const { phone, code } = req.body;
-  console.log("요청 받은 데이터:", { phone, code });
 
   try {
-    const user = await User.findOne({ phone });
+    const phoneParsed = parsePhoneNumberFromString(phone, "KR");
+    const formattedPhone = phoneParsed.number;
+
+    const user = await User.findOne({ phone: formattedPhone });
     if (user) {
-      console.log("사용자 찾음:", user);
       if (user.auth === code) {
         return res.json({ success: true });
       } else {
         return res.status(400).json({ success: false, error: "부정확한 코드" });
       }
     }
-    console.log("사용자 없음, 코드 검증 시도");
-    const isCodeValid = await verifyCode(phone, code);
+
+    const isCodeValid = await verifyCode(formattedPhone, code);
     if (isCodeValid) {
-      // console.log("인증 코드 일치:", code);
-      const newUser = new User({ phone, auth: code });
-      await newUser.save();
       return res.json({ success: true });
     } else {
-      console.log("인증 코드 불일치");
       return res.status(400).json({ success: false, error: "부정확한 코드" });
     }
   } catch (error) {

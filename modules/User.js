@@ -11,6 +11,7 @@ const UserSchema = new Schema({
   nickName: String,
   phone: { type: String, required: true },
   auth: String,
+  code: String,
   account: String,
   image: String,
   career: String,
