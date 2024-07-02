@@ -136,7 +136,7 @@ app.post("/sendsms", async (req, res) => {
 
 //인증번호랑 입력한거랑 비교
 async function verifyCode(phone, code) {
-  // console.log("검증 시도 - 저장된 인증번호:", verifiedCodes);
+  console.log("검증 시도 - 저장된 인증번호:", verifiedCodes);
   const savedCode = verifiedCodes[phone];
   if (savedCode && savedCode === code) {
     return true;
@@ -146,19 +146,19 @@ async function verifyCode(phone, code) {
 
 app.post("/verifycode", async (req, res) => {
   const { phone, code } = req.body;
-  // console.log("요청 받은 데이터:", { phone, code });
+  console.log("요청 받은 데이터:", { phone, code });
 
   try {
     const user = await User.findOne({ phone });
     if (user) {
-      // console.log("사용자 찾음:", user);
+      console.log("사용자 찾음:", user);
       if (user.auth === code) {
         return res.json({ success: true });
       } else {
         return res.status(400).json({ success: false, error: "부정확한 코드" });
       }
     }
-    // console.log("사용자 없음, 코드 검증 시도");
+    console.log("사용자 없음, 코드 검증 시도");
     const isCodeValid = await verifyCode(phone, code);
     if (isCodeValid) {
       // console.log("인증 코드 일치:", code);
