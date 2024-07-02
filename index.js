@@ -22,7 +22,6 @@ const User = require('./modules/User');
 const Satisfied = require('./modules/Satisfied');
 const JobPost = require('./modules/JobPost');
 
-
 //비번암호화
 const bcrypt = require('bcryptjs');
 const salt = bcrypt.genSaltSync(10);
@@ -523,7 +522,6 @@ app.post('/satisfied', async (req, res) => {
 
     // jobPost._id 와 Post_id 가 같은 데이터를 찾아서 업데이트
     const jobPost = await JobPost.findOne({ _id: Post_id });
-    //console.log('찾은 JobPost ---', jobPost);
 
     if (!jobPost) {
       return res.status(404).json({ error: 'Job post not found' });
@@ -531,21 +529,26 @@ app.post('/satisfied', async (req, res) => {
 
     // 상태 변경 조건
     if (repondentID === writerID) {
-      jobPost.status = 4;
+      if (jobPost.status === 3) {
+        jobPost.status = 5;
+      } else {
+        jobPost.status = 4;
+      }
     } else {
-      jobPost.status = 3;
+      if (jobPost.status === 4) {
+        jobPost.status = 5;
+      } else {
+        jobPost.status = 3;
+      }
     }
-
     await jobPost.save();
-
-    // 만약 jobPost 상태가 3 또는 4라면 5로 업데이트 (조건 수정 필요)
-    if (jobPost.status === 3 && jobPost.status === 4) {
-      jobPost.status = 5;
-      await jobPost.save();
-    }
 
     res.json(savedSatisfaction);
   } catch (error) {
+    console.error(
+      'Error saving satisfaction or updating job post status:',
+      error
+    );
     res
       .status(400)
       .json({ error: 'Unable to save data or update job post status' });
@@ -563,14 +566,15 @@ app.get('/satisfaction/:emailID', async (req, res) => {
     console.log('조회된 satisfactionData:', satisfactionData);
 
     if (satisfactionData.length === 0) {
-      return res.status(404).json({ message: '해당 이메일에 대한 만족도 조사 데이터가 없습니다.' });
+      return res
+        .status(404)
+        .json({ message: '해당 이메일에 대한 만족도 조사 데이터가 없습니다.' });
     }
     res.json(satisfactionData);
   } catch (error) {
     res.status(500).json({ message: '서버 오류', error: error.message });
   }
 });
-
 
 app.listen(port, () => {
   console.log('서버 실행되는중!');
