@@ -581,7 +581,7 @@ app.post("/satisfied", async (req, res) => {
 });
 
 // 특정 repondentID를 기준으로 만족도 조사 데이터 조회
-app.get("/satisfaction/:emailID", async (req, res) => {
+app.get("/satisfied/:emailID", async (req, res) => {
   const { emailID } = req.params;
   console.log("요청된 emailID:", emailID);
   try {
