@@ -539,7 +539,7 @@ app.post('/satisfied', async (req, res) => {
     await jobPost.save();
 
     // 만약 jobPost 상태가 3 또는 4라면 5로 업데이트 (조건 수정 필요)
-    if (jobPost.status === 3 || jobPost.status === 4) {
+    if (jobPost.status === 3 && jobPost.status === 4) {
       jobPost.status = 5;
       await jobPost.save();
     }
