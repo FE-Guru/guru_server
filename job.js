@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const JobPost = require("./modules/JobPost");
 const User = require("./modules/User");
+const Comment = require("./modules/Comment");
 const jwt = require("jsonwebtoken");
 const jwtSecret = process.env.SECRET_KEY;
 const cron = require("node-cron");
@@ -619,6 +620,91 @@ router.put("/appCancell/:id", (req, res) => {
     } catch (error) {
       console.error("error: ", error);
       res.status(500).json({ message: "서버 오류" });
+    }
+  });
+});
+
+router.get("/comment/:postId", async (req, res) => {
+  const { postId } = req.params;
+  try {
+    const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
+    res.status(200).json(comments);
+  } catch (error) {
+    console.error("Failed to fetch comments:", error);
+    res.status(500).json({ message: "Failed to fetch comments" });
+  }
+});
+
+router.delete("/commentDel/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    await Comment.findByIdAndDelete(id);
+    res.json({ message: "ok" });
+  } catch (e) {
+    res.json({ message: "server(500) error" });
+  }
+});
+
+router.post("/commentWrit/:postId", async (req, res) => {
+  const { postId } = req.params;
+  const { content } = req.body;
+  const token = req.cookies.token;
+
+  jwt.verify(token, jwtSecret, async (err, info) => {
+    if (err) {
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
+    }
+    try {
+      const user = await User.findById(info.id);
+      if (!user) {
+        return res.status(404).json({ message: "없는 유저입니다" });
+      }
+      const commentDoc = await Comment.create({
+        postId,
+        content,
+        authorID: user.emailID,
+        authorNickName: user.nickName,
+        authorImg: user.image,
+      });
+      await JobPost.findByIdAndUpdate(postId, {
+        $push: { comments: commentDoc._id },
+      });
+      return res.json(commentDoc);
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+      return res.status(500).json({ message: "Failed to add comment" });
+    }
+  });
+});
+
+router.put("/commentEdit/:id", async (req, res) => {
+  const { id } = req.params;
+  const { content } = req.body;
+  const token = req.cookies.token;
+
+  jwt.verify(token, jwtSecret, async (err, info) => {
+    if (err) {
+      return res.status(401).json({ message: "유효하지 않은 토큰입니다" });
+    }
+    try {
+      const user = await User.findById(info.id);
+      if (!user) {
+        return res.status(404).json({ message: "없는 유저입니다" });
+      }
+      const comment = await Comment.findById(id);
+      if (!comment) {
+        return res.status(404).json({ message: "없는 댓글입니다" });
+      }
+      if (comment.authorID !== user.emailID) {
+        return res.status(403).json({ message: "댓글 수정 권한이 없습니다" });
+      }
+      comment.content = content;
+      await comment.save();
+      return res.json({ message: "ok", comment });
+    } catch (error) {
+      console.error("Failed to edit comment:", error);
+      return res.status(500).json({ message: "Failed to edit comment" });
     }
   });
 });
