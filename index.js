@@ -1,9 +1,45 @@
 require("dotenv").config();
+
+const port = 8000;
 const express = require("express");
 const app = express();
-const port = 8000;
-
 const cors = require("cors");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const salt = bcrypt.genSaltSync(10);
+const jwt = require("jsonwebtoken");
+const jwtSecret = process.env.SECRET_KEY;
+const cookieParser = require("cookie-parser");
+const fs = require("fs");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
+const path = require("path");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+const twilio = require("twilio");
+const accountSid = process.env.SID;
+const authToken = process.env.TOKEN;
+const client = twilio(accountSid, authToken);
+const { parsePhoneNumberFromString } = require("libphonenumber-js");
+
+const User = require("./modules/User");
+const Satisfied = require("./modules/Satisfied");
+const JobPost = require("./modules/JobPost");
+const jobRouter = require("./job");
+const { log } = require("console");
+
+//비번찾기 메일전송
+const transporter = nodemailer.createTransport({
+  service: "naver",
+  host: "smtp.naver.com",
+  port: 465,
+  auth: {
+    user: process.env.NAVER_EMAIL,
+    pass: process.env.NAVER_PASSWORD,
+  },
+});
+const verifiedCodes = {};
+
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -11,101 +47,76 @@ app.use(
     exposedHeaders: ["X-Total-Count"],
   })
 );
-
 app.use(express.json());
-
-const mongoose = require("mongoose");
+app.use(cookieParser());
+app.use("/job", jobRouter);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 mongoose.connect(process.env.MONGO_URI);
 
-// models
-const User = require("./modules/User");
-const Satisfied = require("./modules/Satisfied");
-const JobPost = require("./modules/JobPost");
-
-//비번암호화
-const bcrypt = require("bcryptjs");
-const salt = bcrypt.genSaltSync(10);
-
-//토큰
-const jwt = require("jsonwebtoken");
-const jwtSecret = process.env.SECRET_KEY;
-
-//쿠키
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
-
-//멀터 및 이미지 업로드
-const fs = require("fs");
-const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
-const path = require("path");
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// email, sms
-const nodemailer = require("nodemailer");
-const crypto = require("crypto");
-
-const twilio = require("twilio");
-const accountSid = process.env.SID;
-const authToken = process.env.TOKEN;
-const client = twilio(accountSid, authToken);
-const { parsePhoneNumberFromString } = require("libphonenumber-js");
-
 app.get("/", (req, res) => {
-  res.send("get request~!~!~");
+  res.send("8000 server request");
 });
-
-//job
-const jobRouter = require("./job");
-const { log } = require("console");
-app.use("/job", jobRouter);
 
 //회원가입
 app.post("/signup", async (req, res) => {
-  const { emailID, password, userName, nickName, phone, auth, code, account } =
+  const { emailID, password, userName, nickName, phone, auth, account } =
     req.body;
+
   try {
-    // 이메일아이디 중복 체크
+    // 이메일 아이디 중복 체크
     const existUser = await User.findOne({ emailID });
     if (existUser) {
       return res
         .status(409)
-        .json({ message: "이미 존재하는 이메일아이디 입니다." });
+        .json({ message: "이미 존재하는 이메일 아이디 입니다." });
     }
-    const userDoc = await User.create({
-      emailID,
-      password: bcrypt.hashSync(password, salt),
-      userName,
-      nickName,
-      phone,
-      auth,
-      code,
-      account,
-    });
-    res.json(userDoc);
+
+    // 전화번호로 기존 사용자 찾기
+    const user = await User.findOne({ phone });
+    if (user) {
+      if (user.auth === auth) {
+        // 사용자 정보 업데이트
+        user.emailID = emailID;
+        user.password = bcrypt.hashSync(password, salt);
+        user.userName = userName;
+        user.nickName = nickName;
+        user.account = account;
+        await user.save();
+        return res.json(user);
+      } else {
+        return res.status(400).json({ message: "인증 실패 또는 사용자 없음" });
+      }
+    } else {
+      // 새로운 사용자 생성
+      const newUser = new User({
+        emailID,
+        password: bcrypt.hashSync(password, salt),
+        userName,
+        nickName,
+        phone,
+        auth,
+        account,
+      });
+      await newUser.save();
+      return res.json(newUser);
+    }
   } catch (e) {
     res.status(400).json({ message: "failed", error: e.message });
   }
 });
 
 //회원가입시 폰인증
-const verifiedCodes = {};
 app.post("/sendsms", async (req, res) => {
   const { phone: phoneNumber } = req.body;
-  // console.log("폰번호 입력됨:", phoneNumber);
 
-  // 번호를 국제번호 형식으로 변경 및 검증
   const phoneParsed = parsePhoneNumberFromString(phoneNumber, "KR");
   if (!phoneParsed || !phoneParsed.isValid()) {
-    // console.log("부정확한 연락처 형식");
     return res
       .status(400)
       .json({ success: false, error: "부정확한 연락처 형식" });
   }
   const formattedPhone = phoneParsed.number;
-  // console.log("바뀐 번호", formattedPhone);
 
-  // 인증번호 4자리 생성
   let authNum = "";
   for (let i = 0; i < 4; i++) authNum += Math.floor(Math.random() * 10);
 
@@ -115,17 +126,11 @@ app.post("/sendsms", async (req, res) => {
       body: `[GURU] 인증번호는 [${authNum}] 입니다. 정확히 입력해주세요.`,
       to: formattedPhone,
     });
-    // console.log("문자 전송함:", message.sid);
 
-    // 메모리 객체에 인증번호 저장
     verifiedCodes[formattedPhone] = authNum;
-    // console.log("저장된 인증번호:", verifiedCodes);
 
-    await User.findOneAndUpdate(
-      { phone: phoneNumber },
-      { auth: authNum },
-      { upsert: true, new: true }
-    );
+    // console.log("문자 전송함:", message.sid);
+    // console.log("저장된 인증번호:", verifiedCodes);
 
     res.json({ success: true, sid: message.sid, auth: authNum });
   } catch (error) {
@@ -134,39 +139,39 @@ app.post("/sendsms", async (req, res) => {
   }
 });
 
-//인증번호랑 입력한거랑 비교
 async function verifyCode(phone, code) {
-  console.log("검증 시도 - 저장된 인증번호:", verifiedCodes);
+  // console.log("검증 시도 - 저장된 인증번호:", verifiedCodes);
   const savedCode = verifiedCodes[phone];
+  // console.log("입력된 전화번호:", phone);
+  // console.log("저장된 인증번호:", savedCode);
+  // console.log("입력된 인증번호:", code);
   if (savedCode && savedCode === code) {
     return true;
   }
   return false;
 }
 
+//인증번호랑 입력한거랑 비교
 app.post("/verifycode", async (req, res) => {
   const { phone, code } = req.body;
-  console.log("요청 받은 데이터:", { phone, code });
 
   try {
-    const user = await User.findOne({ phone });
+    const phoneParsed = parsePhoneNumberFromString(phone, "KR");
+    const formattedPhone = phoneParsed.number;
+
+    const user = await User.findOne({ phone: formattedPhone });
     if (user) {
-      console.log("사용자 찾음:", user);
       if (user.auth === code) {
         return res.json({ success: true });
       } else {
         return res.status(400).json({ success: false, error: "부정확한 코드" });
       }
     }
-    console.log("사용자 없음, 코드 검증 시도");
-    const isCodeValid = await verifyCode(phone, code);
+
+    const isCodeValid = await verifyCode(formattedPhone, code);
     if (isCodeValid) {
-      // console.log("인증 코드 일치:", code);
-      const newUser = new User({ phone, auth: code });
-      await newUser.save();
       return res.json({ success: true });
     } else {
-      console.log("인증 코드 불일치");
       return res.status(400).json({ success: false, error: "부정확한 코드" });
     }
   } catch (error) {
@@ -417,16 +422,6 @@ app.post("/findacct/id", async (req, res) => {
   }
 });
 
-//비번찾기 메일전송
-const transporter = nodemailer.createTransport({
-  service: "naver",
-  host: "smtp.naver.com",
-  port: 465,
-  auth: {
-    user: process.env.NAVER_EMAIL,
-    pass: process.env.NAVER_PASSWORD,
-  },
-});
 app.post("/findacct/pw", async (req, res) => {
   const { emailID } = req.body;
 
@@ -447,7 +442,7 @@ app.post("/findacct/pw", async (req, res) => {
     const mailOptions = {
       from: process.env.NAVER_EMAIL,
       to: emailID,
-      subject: "[GURU] 비밀번호 재전송 링크입니다.",
+      subject: "[GURU] 비밀번호 재설정 링크입니다.",
       html: `<div style="color: #121212;">
         <p>안녕하세요. GURU 입니다.</p>
             <p>회원님의 비밀번호 재설정을 위해 아래 버튼을 눌러주세요.</p>
@@ -491,7 +486,7 @@ app.post("/job/resetpassword", async (req, res) => {
     user.resetPwToken = undefined;
     user.resetPwExpires = undefined;
     await user.save();
-    console.log("비밀번호 재설정 성공");
+    // console.log("비밀번호 재설정 성공");
     res.status(200).json({ message: "비밀번호 재설정 성공" });
   } catch (error) {
     console.error("비밀번호 재설정 실패:", error);
@@ -583,12 +578,12 @@ app.post("/satisfied", async (req, res) => {
 // 특정 repondentID를 기준으로 만족도 조사 데이터 조회
 app.get("/satisfied/:emailID", async (req, res) => {
   const { emailID } = req.params;
-  console.log("요청된 emailID:", emailID);
+  // console.log("요청된 emailID:", emailID);
   try {
     // repondentID를 기준으로 만족도 조사 데이터 조회
     const satisfactionData = await Satisfied.find({ repondentID: emailID });
 
-    console.log("조회된 satisfactionData:", satisfactionData);
+    // console.log("조회된 satisfactionData:", satisfactionData);
 
     if (satisfactionData.length === 0) {
       return res
