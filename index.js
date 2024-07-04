@@ -294,7 +294,8 @@ app.get("/findUser/:id", async (req, res) => {
 });
 
 app.put("/profileWrite", upload.single("files"), async (req, res) => {
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
   const { career, certi, skill, time, introduce } = req.body;
   if (!token) {
     return res.status(401).json({ message: "토큰이 없습니다" });
@@ -314,7 +315,6 @@ app.put("/profileWrite", upload.single("files"), async (req, res) => {
     const ext = part[part.length - 1];
     newPath = path + "." + ext;
     fs.renameSync(path, newPath);
-    // console.log("file:", path, newPath);
   }
 
   try {
@@ -617,7 +617,8 @@ cron.schedule("59 14 * * *", async () => {
 
 app.post("/jobWrit", async (req, res) => {
   const { title, endDate, workStartDate, workEndDate, location, pay, desc, category } = req.body;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
       console.error("Token error: ", err);
@@ -665,7 +666,9 @@ app.get("/jobEdit/:id", async (req, res) => {
 app.put("/jobEdit/:id", async (req, res) => {
   const { id } = req.params;
   const { title, endDate, workStartDate, workEndDate, location, pay, desc, category } = req.body;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
+
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
       console.error("Token error: ", err);
@@ -711,7 +714,8 @@ app.delete("/deleteJob/:id", async (req, res) => {
 });
 
 app.get("/jobOffer", async (req, res) => {
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
   const jobType = req.query.jobType || "all";
   const status = req.query.status || "all";
   const page = parseInt(req.query.page) || 1;
@@ -746,7 +750,8 @@ app.get("/jobOffer", async (req, res) => {
 });
 
 app.get("/applied", async (req, res) => {
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
   const page = parseInt(req.query.page) || 1;
   const jobType = req.query.jobType || "all";
   const status = req.query.status || "all";
@@ -1058,7 +1063,8 @@ app.get("/findUserData/:id", async (req, res) => {
 /* 매칭 */
 app.put("/hiring", async (req, res) => {
   const { jobPostID, AppliUser } = req.body;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
       console.error("Token error: ", err);
@@ -1109,7 +1115,8 @@ app.get("/JobDetail/:id", async (req, res) => {
 
 app.put("/application/:id", (req, res) => {
   const { id } = req.params;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
 
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
@@ -1160,7 +1167,8 @@ app.put("/application/:id", (req, res) => {
 
 app.put("/appCancell/:id", (req, res) => {
   const { id } = req.params;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
 
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
@@ -1225,7 +1233,8 @@ app.delete("/commentDel/:id", async (req, res) => {
 app.post("/commentWrit/:postId", async (req, res) => {
   const { postId } = req.params;
   const { content } = req.body;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
 
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
@@ -1257,7 +1266,8 @@ app.post("/commentWrit/:postId", async (req, res) => {
 app.put("/commentEdit/:id", async (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
-  const token = req.cookies.token;
+  const headerToken = req.headers.authorization;
+  const token = headerToken.split(" ")[1];
 
   jwt.verify(token, jwtSecret, async (err, info) => {
     if (err) {
