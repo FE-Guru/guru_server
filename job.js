@@ -277,7 +277,6 @@ router.get("/findonLine", async (req, res) => {
   const endCateTime = req.query.endCateTime;
   const pageSize = 5;
   const skip = (page - 1) * pageSize;
-  console.log(talent, field, startCateTime, endCateTime);
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
       const today = new Date();
@@ -302,8 +301,6 @@ router.get("/findonLine", async (req, res) => {
     const totalJobs = await JobPost.countDocuments(query);
     const jobList = await JobPost.find(query).sort({ createdAt: -1 }).skip(skip).limit(pageSize);
     res.append("X-Total-Count", totalJobs.toString());
-    console.log("job", jobList.length);
-    console.log("total", totalJobs);
     res.json(jobList);
   } catch (e) {
     res.json({ message: "server(500) error" });
@@ -360,7 +357,6 @@ router.get("/findoffLine", async (req, res) => {
   const skip = (page - 1) * pageSize;
   const userLat = parseFloat(req.query.lat);
   const userLon = parseFloat(req.query.lon);
-  console.log(talent, field, startCateTime, endCateTime);
 
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
@@ -396,7 +392,6 @@ router.get("/findoffLine", async (req, res) => {
     }
     const pagingJobList = jobList.slice(skip, skip + pageSize);
     res.append("X-Total-Count", totalJobs.toString());
-    console.log("total", totalJobs, "pagingJobList", pagingJobList.length);
     res.json(pagingJobList);
   } catch (e) {
     res.status(500).json({ message: "server(500) error" });
@@ -426,7 +421,6 @@ router.get("/alloffLine", async (req, res) => {
   const titleText = req.query.titleText;
   const userLat = parseFloat(req.query.lat);
   const userLon = parseFloat(req.query.lon);
-  console.log(titleText);
   try {
     const getTodayDateWithTime = (hours, minutes, seconds, milliseconds) => {
       const today = new Date();
@@ -637,7 +631,6 @@ router.get("/comment/:postId", async (req, res) => {
 
 router.delete("/commentDel/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
   try {
     await Comment.findByIdAndDelete(id);
     res.json({ message: "ok" });
