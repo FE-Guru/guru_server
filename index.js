@@ -2,8 +2,8 @@ require("dotenv").config();
 
 const port = 8000;
 const express = require("express");
-const app = express();
 const cors = require("cors");
+const app = express();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const salt = bcrypt.genSaltSync(10);
@@ -40,13 +40,22 @@ const transporter = nodemailer.createTransport({
 });
 const verifiedCodes = {};
 
+const allowedOrigins = ["http://localhost:3000", "https://hpe-guru.netlify.app"];
+
 app.use(
   cors({
-    origin: "https://hpe-guru.netlify.app/",
+    origin: function (origin, callback) {
+      if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
   })
 );
+
 app.use(express.json());
 app.use(cookieParser());
 app.use("/job", jobRouter);
