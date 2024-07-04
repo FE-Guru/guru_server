@@ -42,7 +42,7 @@ const verifiedCodes = {};
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://hpe-guru.netlify.app/",
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
   })
@@ -59,16 +59,13 @@ app.get("/", (req, res) => {
 
 //회원가입
 app.post("/signup", async (req, res) => {
-  const { emailID, password, userName, nickName, phone, auth, account } =
-    req.body;
+  const { emailID, password, userName, nickName, phone, auth, account } = req.body;
 
   try {
     // 이메일 아이디 중복 체크
     const existUser = await User.findOne({ emailID });
     if (existUser) {
-      return res
-        .status(409)
-        .json({ message: "이미 존재하는 이메일 아이디 입니다." });
+      return res.status(409).json({ message: "이미 존재하는 이메일 아이디 입니다." });
     }
 
     // 전화번호로 기존 사용자 찾기
@@ -111,9 +108,7 @@ app.post("/sendsms", async (req, res) => {
 
   const phoneParsed = parsePhoneNumberFromString(phoneNumber, "KR");
   if (!phoneParsed || !phoneParsed.isValid()) {
-    return res
-      .status(400)
-      .json({ success: false, error: "부정확한 연락처 형식" });
+    return res.status(400).json({ success: false, error: "부정확한 연락처 형식" });
   }
   const formattedPhone = phoneParsed.number;
 
@@ -369,11 +364,7 @@ app.post("/mypage/personaledit", async (req, res) => {
         isUpdated = true;
       }
     }
-    if (
-      user.nickName !== nickName ||
-      user.phone !== phone ||
-      user.account !== account
-    ) {
+    if (user.nickName !== nickName || user.phone !== phone || user.account !== account) {
       user.nickName = nickName;
       user.phone = phone;
       user.account = account;
@@ -437,7 +428,7 @@ app.post("/findacct/pw", async (req, res) => {
     user.resetPwExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    const resetLink = `http://localhost:3000/resetpassword?token=${resetToken}&email=${emailID}`;
+    const resetLink = `https://hpe-guru.netlify.app/resetpassword?token=${resetToken}&email=${emailID}`;
 
     const mailOptions = {
       from: process.env.NAVER_EMAIL,
@@ -477,9 +468,7 @@ app.post("/job/resetpassword", async (req, res) => {
     const isTokenExpired = user.resetPwExpires < Date.now();
 
     if (!isTokenValid || isTokenExpired) {
-      return res
-        .status(400)
-        .json({ message: "토큰이 유효하지 않거나 만료되었습니다." });
+      return res.status(400).json({ message: "토큰이 유효하지 않거나 만료되었습니다." });
     }
 
     user.password = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
@@ -565,13 +554,8 @@ app.post("/satisfied", async (req, res) => {
 
     res.json(savedSatisfaction);
   } catch (error) {
-    console.error(
-      "Error saving satisfaction or updating job post status:",
-      error
-    );
-    res
-      .status(400)
-      .json({ error: "Unable to save data or update job post status" });
+    console.error("Error saving satisfaction or updating job post status:", error);
+    res.status(400).json({ error: "Unable to save data or update job post status" });
   }
 });
 
@@ -586,9 +570,7 @@ app.get("/satisfied/:emailID", async (req, res) => {
     // console.log("조회된 satisfactionData:", satisfactionData);
 
     if (satisfactionData.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "해당 이메일에 대한 만족도 조사 데이터가 없습니다." });
+      return res.status(404).json({ message: "해당 이메일에 대한 만족도 조사 데이터가 없습니다." });
     }
     res.json(satisfactionData);
   } catch (error) {
