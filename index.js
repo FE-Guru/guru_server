@@ -1295,6 +1295,120 @@ app.put("/commentEdit/:id", async (req, res) => {
   });
 });
 
+
+
+
+/* 결제 */
+// 포트원 액세스 토큰을 가져오는 함수
+const getPortoneAccessToken = async () => {
+  const url = 'https://api.iamport.kr/users/getToken';
+  const options = {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      imp_key: process.env.PORTONE_API_KEY,
+      imp_secret: process.env.PORTONE_API_SECRET
+    })
+  };
+
+  try {
+    const response = await fetch(url, options);
+    const data = await response.json();
+    if (data.code === 0) {
+      return data.response.access_token;
+    } else {
+      throw new Error(data.message);
+    }
+  } catch (error) {
+    console.error('Failed to get Portone access token', error);
+    throw new Error('Failed to get Portone access token');
+  }
+};
+
+// 송금 API 호출 함수
+const transferToAccount = async (account, amount, accessToken) => {
+  try {
+    const response = await fetch('https://api.iamport.kr/escrow/logis/invoices', {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        receiver: {
+          bank: account.bank,
+          account: account.account,
+          name: account.name,
+        },
+        amount: amount,
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.code !== 0) {
+      throw new Error(data.message);
+    }
+
+    return data;
+  } catch (error) {
+    throw new Error('Failed to transfer to account');
+  }
+};
+
+
+// 결제 정보 확인 및 금액 분할 처리
+app.post('/payout', async (req, res) => {
+  const { imp_uid, merchant_uid, companyAccount, matchedUserAccount, totalAmount } = req.body;
+
+  try {
+    // console.log('Received payout request: ', req.body);
+
+    // 포트원 액세스 토큰 가져오기
+    const accessToken = await getPortoneAccessToken();
+    // console.log('Access token: ', accessToken);
+
+    // 결제 정보 가져오기
+    const paymentResponse = await fetch(`https://api.iamport.kr/payments/${imp_uid}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const paymentData = await paymentResponse.json();
+    // console.log('Payment data: ', paymentData);
+
+    if (paymentData.code !== 0) {
+      return res.status(400).json({ success: false, message: 'Invalid payment data' });
+    }
+
+    // 결제 수단 확인
+    const payMethod = paymentData.response.pay_method;
+
+    // 금액 분할 (예: 10%는 회사로, 90%는 매칭된 유저로)
+    const companyShare = totalAmount * 0.1;
+    const matchedUserShare = totalAmount * 0.9;
+
+    // console.log('Company share: ', companyShare);
+    // console.log('Matched user share: ', matchedUserShare);
+
+    if (payMethod === 'trans' || payMethod === 'vbank') {
+      // 실시간계좌이체 또는 가상계좌인 경우 에스크로 송금
+      await transferToAccount(companyAccount, companyShare, accessToken);
+      await transferToAccount(matchedUserAccount, matchedUserShare, accessToken);
+    } else {
+      // 카드 결제인 경우 수수료를 제외한 금액을 매칭된 유저에게 송금 (여기서는 수동으로 처리해야 함)
+      console.log('Card payment detected. Please manually transfer the matched user share.');
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Payout error:', error);
+    return res.status(500).json({ success: false, message: 'Payout error', error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log("서버 실행되는중!");
 });
+
+
+
