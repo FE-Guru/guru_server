@@ -575,18 +575,18 @@ app.get("/satisfied/:emailID", async (req, res) => {
   // console.log("요청된 emailID:", emailID);
   try {
     // repondentID를 기준으로 만족도 조사 데이터 조회
-    const satisfactionData = await Satisfied.find({ repondentID: emailID });
+    const satisfactionData = await Satisfied.find({ recipientID: emailID });
 
-    // console.log("조회된 satisfactionData:", satisfactionData);
-
+    // 만족도 조사 데이터가 없을 경우 빈 배열 반환
     if (satisfactionData.length === 0) {
-      return res.status(404).json({ message: "해당 이메일에 대한 만족도 조사 데이터가 없습니다." });
+      return res.json([]); // 빈 배열 반환
     }
     res.json(satisfactionData);
   } catch (error) {
     res.status(500).json({ message: "서버 오류", error: error.message });
   }
 });
+
 
 //***Job *//
 
